@@ -788,3 +788,12 @@ straight ramp, since drawn straight it went unreadable about ten seconds into a 
 memory, which is the console dropping a contact the fleet still holds. The Shoal's card
 describes the tick and the ring, and the drawing this replaced was the last thing using the
 hollow branch of the core shader, so both went.
+
+One frame turned out to be cheap, which is worth knowing before anything above gets blamed for
+a stutter. The harness browser draws in software so its milliseconds mean nothing, but the work
+submitted per frame is the same on any machine, and the Last Exam, the heaviest board in the
+campaign with 122 hulls up and two dust belts drawn, submits 72 draw calls, 3900 triangles, 85
+thousand points and 87 thousand line segments. The other seven missions run 54 to 66 calls.
+Hulls, tracers, sparks and annotations are all pooled and batched, so a hull count moves what is
+in the buffers rather than the number of calls, and what a slow machine would run short of is
+fill rate for the additive points and the bloom chain rather than anything geometric.
