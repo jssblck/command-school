@@ -320,6 +320,19 @@ Object.assign(window, {
       rig.apply(stage.camera, 10)
     },
     /**
+     * Stand off far enough to hold a sphere of radius `r` around `at`, keeping the
+     * current yaw and pitch. Every framing a shot wants is this one question asked
+     * about a different sphere, so the arithmetic lives here rather than in the
+     * fixture: a distance computed from a field of view the fixture guesses at is a
+     * shot that misses whatever it was aimed at.
+     */
+    fit(at: Vector3, r: number, margin = 1.15) {
+      rig.target.copy(at)
+      // Vertical field of view, which is the tighter of the two at any sane aspect.
+      rig.dist = (r * margin) / Math.tan((stage.camera.fov * Math.PI) / 360)
+      rig.apply(stage.camera, 10)
+    },
+    /**
      * Frame every live hull, keeping the current yaw and pitch. A deployment shot
      * cannot be composed as a fraction of `bounds`, because the missions do not
      * share a scale: the same fraction that holds a skirmish in view sits two
@@ -332,15 +345,15 @@ Object.assign(window, {
       const p = new Vector3()
       let r = 0
       for (const s of live) r = Math.max(r, at.distanceTo(p.set(s.pos.x, s.pos.y, s.pos.z)))
-      rig.target.copy(at)
-      // Vertical field of view, which is the tighter of the two at any sane aspect.
-      rig.dist = (r * margin) / Math.tan((stage.camera.fov * Math.PI) / 360)
-      rig.apply(stage.camera, 10)
+      this.fit(at, r, margin)
     },
     /**
-     * The midpoint of the closest pair of enemies, which is where the fight is.
-     * A fleet's centroid is the wrong thing to aim a close shot at: a split fleet
-     * averages out to empty space between its halves.
+     * Where the fight is and how much room it needs: the midpoint of the closest pair
+     * of enemies, and half the gap between them. A fleet's centroid is the wrong thing
+     * to aim a close shot at, since a split fleet averages out to empty space between
+     * its halves, and the aim point alone is not enough either. A pair sixty units
+     * apart photographed from forty six holds neither hull in frame, which is how the
+     * close shot came back as two tracers and no ships.
      */
     contact() {
       const w = session!.world
@@ -359,7 +372,15 @@ Object.assign(window, {
       // A battle that ended early has no contact left to frame, and the origin is
       // the wrong fallback: on most missions it is inside a planet, so the shot
       // comes back as a screen of wireframe with the fleet nowhere in it.
-      return best === Infinity ? centroid([...blues, ...reds]) : at
+      if (best === Infinity) {
+        const rest = [...blues, ...reds]
+        const mid = centroid(rest)
+        const p = new Vector3()
+        let r = 0
+        for (const s of rest) r = Math.max(r, mid.distanceTo(p.set(s.pos.x, s.pos.y, s.pos.z)))
+        return { at: mid, r }
+      }
+      return { at, r: Math.sqrt(best) / 2 }
     },
   },
 })

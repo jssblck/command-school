@@ -33,8 +33,12 @@ interface Shot {
   dist?: number
   /** Aim at the nearest pair of enemies instead of at the origin. */
   focus?: boolean
-  /** Back off until every live hull is in frame, ignoring `dist`. */
-  fit?: boolean
+  /**
+   * Choose the distance from what the shot wants to hold rather than from `dist`:
+   * `all` backs off until every live hull is in frame, `pair` until both hulls of
+   * the closest engagement are.
+   */
+  fit?: 'all' | 'pair'
 }
 
 const args = process.argv.slice(2)
@@ -52,13 +56,20 @@ const moments = (t: number[]): Shot[] =>
       // asked about the fight rather than about the deployment.
       t.map((at) => ({ name: `t${at}`, at, pitch: 0.26, dist: 200, focus: true }))
     : [
-        { name: 'deploy', at: 0.5, pitch: 0.42, fit: true },
+        { name: 'deploy', at: 0.5, pitch: 0.42, fit: 'all' },
         { name: 'contact', at: 14, pitch: 0.32, dist: 460, focus: true },
         { name: 'melee', at: 34, pitch: 0.26, dist: 200, focus: true },
         // Close enough that hulls are geometry rather than points of light, which
         // is the only range at which silhouettes, trails and tracers can be judged.
-        { name: 'close', at: 34, pitch: 0.18, dist: 46, focus: true },
+        { name: 'close', at: 34, pitch: 0.18, fit: 'pair' },
       ]
+
+/**
+ * The closest a shot ever stands. A five unit hull is about a hundred pixels tall
+ * from here, so it is geometry rather than a point of light, and a pair already
+ * inside this radius does not drag the camera in among the hulls.
+ */
+const CLOSE_ROOM = 20
 
 async function main(): Promise<void> {
   rmSync(OUT, { recursive: true, force: true })
@@ -88,18 +99,28 @@ async function capture(page: Page, mission: string, shot: Shot): Promise<void> {
   await page.waitForFunction('window.cs !== undefined')
 
   await page.evaluate(
-    ({ at, yaw, pitch, dist, focus, fit }) => {
+    ({ at, yaw, pitch, dist, focus, fit, room }) => {
       const cs = (window as unknown as { cs: CsHandle }).cs
       if (at > 0) cs.advance(at)
+      const c = cs.contact()
       cs.look({
         yaw: yaw ?? 0.6,
         pitch: pitch ?? 0.4,
         dist: dist ?? 600,
-        at: focus ? cs.contact() : undefined,
+        at: focus ? c.at : undefined,
       })
-      if (fit) cs.frame()
+      if (fit === 'all') cs.frame()
+      if (fit === 'pair') cs.fit(c.at, Math.max(c.r, room))
     },
-    { at: shot.at, yaw: shot.yaw, pitch: shot.pitch, dist: shot.dist, focus: shot.focus, fit: shot.fit },
+    {
+      at: shot.at,
+      yaw: shot.yaw,
+      pitch: shot.pitch,
+      dist: shot.dist,
+      focus: shot.focus,
+      fit: shot.fit,
+      room: CLOSE_ROOM,
+    },
   )
 
   // A couple of real frames so the camera easing settles and the particle pass
@@ -114,7 +135,8 @@ interface CsHandle {
   advance(seconds: number): void
   look(opts: { yaw?: number; pitch?: number; dist?: number; at?: unknown }): void
   frame(margin?: number): void
-  contact(): unknown
+  fit(at: unknown, r: number, margin?: number): void
+  contact(): { at: unknown; r: number }
 }
 
 main().catch((e) => {
