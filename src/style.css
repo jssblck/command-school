@@ -252,6 +252,14 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* The repeat count reads as an aside rather than as part of what was said, since the
+   words are the fleet's and the count is the console's. */
+.comm .times {
+  font-size: 10px;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
 .comm.order {
   color: #57c9ff;
 }

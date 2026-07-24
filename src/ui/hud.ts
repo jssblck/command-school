@@ -132,8 +132,14 @@ export class Hud {
     // position: the log is a ring, and once it is full its length stops changing.
     for (const line of this.controls.log) {
       if (line.seq < this.drawn) continue
-      this.comm.append(commLine(line))
       this.drawn = line.seq + 1
+      // A fleet under standing orders says the same thing over and over: re-tasking a
+      // pair of wings every couple of seconds filled six of the nine lines the channel
+      // holds with "2 wings acknowledge" and pushed three hull losses off the bottom.
+      // A repeat counts up on the line already there, which keeps the fact and the room.
+      const last = this.comm.lastElementChild as HTMLElement | null
+      if (last?.dataset.text === line.text) tallyLine(last, line)
+      else this.comm.append(commLine(line))
     }
     while (this.comm.childElementCount > 9) this.comm.firstElementChild!.remove()
   }
@@ -229,8 +235,22 @@ export class Hud {
 
 function commLine(line: LogLine): HTMLElement {
   const node = el('div', `comm ${line.tone}`)
+  node.dataset.text = line.text
+  node.dataset.times = '1'
   node.append(el('span', 'at', `${line.at.toFixed(0)}`), el('span', 'text', line.text))
   return node
+}
+
+/**
+ * Fold a repeat into the line above it: the clock moves to the latest saying of it, so
+ * the timestamp column stays in order, and the count says how many there were.
+ */
+function tallyLine(node: HTMLElement, line: LogLine): void {
+  const times = Number(node.dataset.times ?? '1') + 1
+  node.dataset.times = String(times)
+  node.querySelector('.at')!.textContent = line.at.toFixed(0)
+  const tally = node.querySelector('.times') ?? node.appendChild(el('span', 'times'))
+  tally.textContent = `x${times}`
 }
 
 /**
