@@ -629,12 +629,12 @@ account of how. On the pass this was written from that was seed 9109, and it rea
 Nine lances fly at 30 while the needles and the screen fly at 58, so one click to a single
 waypoint puts the fast wings on station at the bays ten seconds ahead of the guns, and the guns
 cross the last 350 units alone: on seed 9109 their artillery was standing where that leg passed
-and LOVELACE arrived with two of its nine hulls. Two guns closed one bay and stalled on the second
-while COIL WING rebuilt from one needle to six, blue's last gun died at T+91, and the scout held
-the station it had been given until red's needles reached it at T+115. That is the disarmed rule
-working rather than a defect. The channel says the guns are gone and the battle stays open, and
-the scout that could have outrun everything red owns sat where it was posted, because leaving is
-an order and nobody gave it.
+and LOVELACE arrived with two of its nine hulls. Two guns closed one bay and stalled on the
+second while COIL WING rebuilt from one needle to six, blue's last gun died at T+91, and the
+scout held the station it had been given until red's needles reached it at T+115. That is the
+disarmed rule working rather than a defect. The channel says the guns are gone and the battle
+stays open, and the scout that could have outrun everything red owns sat where it was posted,
+because leaving is an order and nobody gave it.
 
 Under the Aegis was taking 2 of 5 in the same pass, and the field was over the wrong wing.
 The card says their screens make our small arms worthless, and the half it left out is that
