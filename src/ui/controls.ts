@@ -47,6 +47,16 @@ const CLICK_SLOP = 12
  */
 const KEY_PAN = 600
 const PAN_KEYS = new Set(['w', 'a', 's', 'd'])
+/**
+ * How the channel names a group of wings: by name when there is one, by count when
+ * there are more.
+ *
+ * One click can carry the whole fleet, and on the last exam that spent ten of the nine
+ * lines the channel holds saying one thing five times over, which pushed the contact
+ * and the losses off the bottom. Which wing is which does not belong here anyway: the
+ * roster carries a line per wing and marks the one that still owes an acknowledgement.
+ */
+const wingsNamed = (names: string[]): string => (names.length === 1 ? names[0] : `${names.length} wings`)
 
 export type Mode = 'normal' | 'device'
 
@@ -416,13 +426,18 @@ export class Controls {
     if (this.selected.size === 0) return
     const hit = this.pick(x, y)
     if (hit && hit.side !== this.side) {
+      // Same order either way: close on that wing and hold station off it. But a scout
+      // carries no gun, so "engage" would be the comm line promising a fight the wing has
+      // no way to start. A mixed selection gets a line for each verb rather than one line
+      // that is half wrong.
+      const fight: string[] = []
+      const watch: string[] = []
       for (const sq of this.selection()) {
         issueOrder(this.world, sq, { kind: 'attack', sq: hit.id })
-        // Same order either way: close on that wing and hold station off it. But a scout
-        // carries no gun, so "engage" would be the comm line promising a fight the wing
-        // has no way to start.
-        this.say(`${sq.name} ${cls(sq.cls).weapon ? 'engage' : 'shadow'} ${hit.name}`, 'order')
+        ;(cls(sq.cls).weapon ? fight : watch).push(sq.name)
       }
+      if (fight.length > 0) this.say(`${wingsNamed(fight)} engage ${hit.name}`, 'order')
+      if (watch.length > 0) this.say(`${wingsNamed(watch)} shadow ${hit.name}`, 'order')
       return
     }
     // The pointer may have moved a pixel since the last frame, so the order traces
@@ -430,10 +445,12 @@ export class Controls {
     this.hover = hit?.id ?? null
     this.trace()
     if (!this.aimValid) return
+    const moved: string[] = []
     for (const sq of this.selection()) {
       issueOrder(this.world, sq, { kind: 'move', to: { x: this.aim.x, y: this.aim.y, z: this.aim.z } })
-      this.say(`${sq.name} move`, 'order')
+      moved.push(sq.name)
     }
+    if (moved.length > 0) this.say(`${wingsNamed(moved)} move`, 'order')
   }
 
   // -------------------------------------------------------------------------
@@ -811,6 +828,7 @@ export class Controls {
    * that scrolls faster than it can be read is the same as no log at all.
    */
   private drainEvents(): void {
+    const acks: string[] = []
     for (const e of this.world.events) {
       if (e.kind === 'kill' && e.side === this.side) this.losses++
       // The simulation names the world; the phrasing belongs here. Passing the name
@@ -822,8 +840,14 @@ export class Controls {
         // A bare order event is an acknowledgement. The only thing the simulation
         // attaches text to is an order it did not carry out, and a refusal that scrolls
         // past in the same grey as an ack is the same as no answer at all.
-        if (sq) this.say(e.text ? `${sq.name}: ${e.text}` : `${sq.name} acknowledges`, e.text ? 'device' : 'ack')
+        if (sq && e.text) this.say(`${sq.name}: ${e.text}`, 'device')
+        else if (sq) acks.push(sq.name)
       }
+    }
+    // Collapsed the way losses are, since a fleet order comes back as one answer per wing
+    // in the same tick and they all say the same thing.
+    if (acks.length > 0) {
+      this.say(`${wingsNamed(acks)} acknowledge${acks.length > 1 ? '' : 's'}`, 'ack')
     }
     if (this.losses > 0 && this.world.t - this.lossFlush > 1.5) {
       this.say(`${this.losses} hull${this.losses > 1 ? 's' : ''} lost`, 'loss')
