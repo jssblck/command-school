@@ -18,9 +18,9 @@
  * was on screen at all, since the opening camera is the only one a player has until they
  * move it. Whether the wing a plan wanted to attack had been seen, since an order given to
  * a stale ghost is a player being lied to. And how far the order that landed sits from the
- * point that was clicked, because a click resolves on a plane through the wing and cannot
- * leave it, so the gap between intent and order is what the interface costs to speak
- * through.
+ * cross the interface drew under the cursor, since that cross is the promise a player can
+ * check, plus how far the interface had to move the point to be able to say it at all, which
+ * is what a volume with no floor costs to speak about.
  */
 import { chromium, type Page } from 'playwright-core'
 import { DEVICE_RADIUS } from '../src/sim/step'
@@ -177,21 +177,49 @@ class Hand {
     await this.page.keyboard.down('Shift')
     await this.page.mouse.move(px.x, px.y)
     await settle(this.page)
+    /*
+     * The cross under the cursor, read before the click, because that is the promise the player
+     * can check: the interface draws where the order will land and then puts it there. Measured
+     * against the point this file wished for instead, the note blamed the game for the theatre
+     * wall. Overwhelm is won pressed against the boundary and its plan keeps asking for points
+     * past it, so the two standing notes, 138 and 276 units, were exactly the distance from the
+     * wished point to the wall it was clamped to, drawn there and ordered there.
+     */
+    const cross = (await this.page.evaluate(`(() => {
+      const c = window.cs.controls
+      return c.aimValid ? { x: c.aim.x, y: c.aim.y, z: c.aim.z } : null
+    })()`)) as P3 | null
     await this.page.mouse.click(px.x, px.y, { button: 'right' })
     await this.page.keyboard.up('Shift')
+    if (!cross) {
+      this.notes.push(`the cursor read nothing at ${fmt(to)} at T+${await this.clock()}`)
+      await this.beat()
+      return
+    }
     const off = (await this.page.evaluate(`(() => {
       const w = window.cs.world
-      const want = ${JSON.stringify(to)}
+      const cross = ${JSON.stringify(cross)}
       let worst = 0
       for (const id of window.cs.controls.selected) {
         const sq = w.squadrons.find((s) => s.id === id)
         const o = sq && sq.pending && sq.pending.order
         if (!o || o.kind !== 'move') continue
-        worst = Math.max(worst, Math.hypot(o.to.x - want.x, o.to.y - want.y, o.to.z - want.z))
+        worst = Math.max(worst, Math.hypot(o.to.x - cross.x, o.to.y - cross.y, o.to.z - cross.z))
       }
       return Math.round(worst)
     })()`)) as number
-    if (off > 60) this.notes.push(`the order landed ${off} from the point clicked at ${fmt(to)}`)
+    if (off > 1) this.notes.push(`the order landed ${off} from the cross drawn at ${fmt(cross)}`)
+    // How far the interface had to move the point to be able to say it at all: the wall, or the
+    // wing drifting out from under its own plane between the projection and the click.
+    const moved = Math.round(Math.hypot(cross.x - to.x, cross.y - to.y, cross.z - to.z))
+    if (moved > 60) {
+      const held = Math.hypot(to.x, to.y, to.z) > (await this.bounds()) - 2
+      this.notes.push(
+        held
+          ? `the wall held the move at ${moved} short of ${fmt(to)}`
+          : `the cross sat ${moved} from ${fmt(to)} by the time it could be clicked`,
+      )
+    }
     await this.beat()
   }
 
@@ -589,9 +617,17 @@ class Hand {
         const n = Math.hypot(d.x, d.y, d.z)
         if (n < 1) return null
         const sq = w.squadrons.find((s) => s.name === carrier)
+        // Held inside the theatre, because "300 further out" means as far out along this line as
+        // the board has: from T+30 or so this fleet is against the wall, and asking for a point
+        // past it had the plan clicking 300 into the void and the harness reporting the clamp that
+        // caught it as an interface fault, nine times a seed.
+        const out = (p) => {
+          const r = Math.hypot(p.x, p.y, p.z), keep = w.bounds - 2
+          return r > keep ? { x: p.x * keep / r, y: p.y * keep / r, z: p.z * keep / r } : p
+        }
         return {
           wings: wings.map((s) => s.name),
-          away: { x: b.x + (d.x / n) * 300, y: b.y + (d.y / n) * 300, z: b.z + (d.z / n) * 300 },
+          away: out({ x: b.x + (d.x / n) * 300, y: b.y + (d.y / n) * 300, z: b.z + (d.z / n) * 300 }),
           // The carrier goes the other way by half as much, which is the rearguard. Sending it
           // at the biggest knot of theirs instead is what the scripted plan does, and by hand it
           // flew the courier clean across the theatre at a wing that was never the pursuit: dead
@@ -698,6 +734,9 @@ class Hand {
   }
 
   clock = async (): Promise<string> => ((await this.page.evaluate('window.cs.world.t')) as number).toFixed(0)
+
+  /** The radius of the theatre, which is what a move order past it gets clamped to. */
+  bounds = async (): Promise<number> => (await this.page.evaluate('window.cs.world.bounds')) as number
 
   async result(): Promise<string> {
     const r = (await this.page.evaluate(`(() => {
