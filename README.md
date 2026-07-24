@@ -757,7 +757,10 @@ was in frame, a framing that under fog stands well back to hold hulls that are n
 pushes our own fleet into a corner. A fixture that poses its own opening shot can never catch
 the game's opening being wrong, so that shot photographs whatever camera the game left, and
 First Contact's deployment is now ten legible needles, a moon, an empty volume and an empty
-enemy bar.
+enemy bar. Photographing the real opening is also the first check of it: across all eight
+missions it holds every one of our hulls on screen, the fleet spanning 227 to 731 pixels of a
+1600 by 900 frame with its wings up to 786 apart, so nothing has to be found before it can be
+given an order.
 
 The comm channel in those frames was spending its nine lines on the same sentence. An order to
 several wings posts one acknowledgement per wing, so three wings moving together wrote three
