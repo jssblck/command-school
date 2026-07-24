@@ -625,11 +625,11 @@ difference between closing both bays around T+83 with eleven to nineteen of twen
 left and never closing either.
 
 The seed it loses says only that the fleet was gone before the end, so the timeline is the whole
-account of how. On the pass this was written from that was seed 9109, and it reads like this. Nine
-lances fly at 30 while the needles and the screen fly at 58, so one click to a single waypoint
-puts the fast wings on station at the bays ten seconds ahead of the guns, and the guns cross
-the last 350 units alone: on seed 9109 their artillery was standing where that leg passed and
-LOVELACE arrived with two of its nine hulls. Two guns closed one bay and stalled on the second
+account of how. On the pass this was written from that was seed 9109, and it reads like this.
+Nine lances fly at 30 while the needles and the screen fly at 58, so one click to a single
+waypoint puts the fast wings on station at the bays ten seconds ahead of the guns, and the guns
+cross the last 350 units alone: on seed 9109 their artillery was standing where that leg passed
+and LOVELACE arrived with two of its nine hulls. Two guns closed one bay and stalled on the second
 while COIL WING rebuilt from one needle to six, blue's last gun died at T+91, and the scout held
 the station it had been given until red's needles reached it at T+115. That is the disarmed rule
 working rather than a defect. The channel says the guns are gone and the battle stays open, and
