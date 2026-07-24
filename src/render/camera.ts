@@ -31,11 +31,29 @@ export class CameraRig {
   private readonly tmp = new Vector3()
   private readonly e0 = new Vector3()
   private readonly e1 = new Vector3()
+  private readonly was = new Vector3()
+  private readonly now = new Vector3()
+  private readonly right = new Vector3()
+  private readonly up = new Vector3()
   private started = false
 
+  /**
+   * Turn to look somewhere else without moving the camera.
+   *
+   * An orbit rig walks the camera around a fixed centre, and at command range that
+   * reads as the theatre being spun on a turntable rather than as a commander turning
+   * their head: the one part of the picture that stays put is the thing under the
+   * cursor, which is the thing being looked at. Holding the position and pushing the
+   * centre around instead makes the drag a look. Nothing else has to change, since a
+   * followed wing writes the centre every frame, so the same drag still swings around
+   * whatever the camera has been told to hold.
+   */
   orbit(dx: number, dy: number): void {
+    this.direction(this.was)
     this.yaw -= dx
     this.pitch = clamp(this.pitch + dy, -PITCH_LIMIT, PITCH_LIMIT)
+    this.direction(this.now)
+    this.target.addScaledVector(this.was, this.dist).addScaledVector(this.now, -this.dist)
   }
 
   zoom(notches: number): void {
@@ -43,14 +61,20 @@ export class CameraRig {
   }
 
   /**
-   * Slide the orbit centre across the plane the camera is looking through, which
-   * is the only pan that feels like moving over a battle rather than through it.
+   * Slide the orbit centre across the screen, in world units along the camera's own
+   * right and up. How many units a gesture is worth is a question about the frustum
+   * and the viewport, so the caller answers it; this is only the basis.
+   *
+   * And the basis has to be the camera's own. The pair the rig hangs the volume off
+   * does not turn with yaw, and panning against it meant a horizontal drag moved the
+   * picture seven pixels while a vertical one moved it twenty four sideways, with which
+   * axis did what depending on where the camera happened to be standing.
    */
-  pan(dx: number, dy: number): void {
-    this.frame()
-    const scale = this.dist * 0.0016
-    this.target.addScaledVector(this.e0, -dx * scale)
-    this.target.addScaledVector(this.e1, -dy * scale)
+  pan(right: number, up: number): void {
+    const dir = this.direction(this.tmp)
+    this.right.crossVectors(this.upAxis, dir).normalize()
+    this.up.crossVectors(dir, this.right).normalize()
+    this.target.addScaledVector(this.right, right).addScaledVector(this.up, up)
   }
 
   focus(at: Vec3, dist?: number): void {

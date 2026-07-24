@@ -24,14 +24,16 @@ sensor fog are all there to make that delay expensive.
 | click / shift click | select a squadron, or add to the selection |
 | right click | move to empty space, or attack the contact under the cursor |
 | shift while ordering | set the order's altitude instead of its position |
-| digits `1` to `9`, `tab`, `a` | select by roster number, cycle, or select everything |
+| digits `1` to `9`, `tab`, `q` | select by roster number, cycle, or select everything |
 | `z` `x` `c` | stance: tight concentrates fire, open advances, wide spreads a wall |
 | `h` | hold station here |
-| `d` then click | arm the device and pick a target; right click stands it down |
+| `e` then click | arm the device and pick a target; right click stands it down |
 | `f` `l` `g` | hold the selection centred, level the camera, or put the enemy's gate down |
 | space, `[` `]` | pause, and halve or double the clock |
 
-Drag to orbit, wheel to zoom, middle drag to pan.
+`wasd` carries the camera across the volume and a middle drag does the same in one
+gesture, a left drag turns it to look somewhere else without moving it, and the wheel
+zooms.
 
 ## The volume
 
@@ -46,8 +48,9 @@ launch bay; eyes are unarmed and see two and a half times as far as anything els
 you own.
 
 Planets and moons block fire but not sensors, so a world is cover from guns rather
-than a way to disappear, and a well swallows any bolt that ploughs into it. Their pull does nothing to a hull: thrust beats surface gravity by an
-order of magnitude here, and a run past a planet with the well switched off bends
+than a way to disappear, and a well swallows any bolt that ploughs into it. Their
+pull does nothing to a hull: thrust beats surface gravity by an order of magnitude
+here, and a run past a planet with the well switched off bends
 within a unit of the same run with it on. So a world is a wall to route around
 rather than a current to ride, and what it costs is seconds. Squadrons steer wide
 of a surface whatever they were told, holding fifty units clear at the closest
@@ -430,8 +433,9 @@ headless plans are where a plan gets compared. What this harness is good for is 
 cannot check, which is whether the card can be read, clicked and flown at all, and it reports
 that in the notes under each seed rather than in the number. The note it prints most is a wing
 dying between the moment the plan read the board and the moment it clicked, which reads as
-nothing being selected to send at THORN at T+35, and in the last pass every one of those was
-under a seed the plan went on to win.
+nothing being selected to send at THORN at T+35. Nine of the ten in the last pass were under a
+seed the plan went on to win, so the note is mostly the cost of reading a board over a comm
+delay; the tenth is the Bay Doors seed it loses, where by T+93 there was nothing left to send.
 
 Six findings out of that pass, and not one of them was a balance number. The first was mine
 rather than the game's. Five of the six plans said everything they had to say in the first
@@ -619,7 +623,8 @@ wing, where the list is empty and the rule falls back to nearest, and on this on
 difference between closing both bays around T+83 with eleven to nineteen of twenty three hulls
 left and never closing either.
 
-No note comes out of the seed it loses, which leaves the timeline as the whole account. Nine
+The seed it loses says only that the fleet was gone before the end, so the timeline is the whole
+account of how. On the pass this was written from that was seed 9109, and it reads like this. Nine
 lances fly at 30 while the needles and the screen fly at 58, so one click to a single waypoint
 puts the fast wings on station at the bays ten seconds ahead of the guns, and the guns cross
 the last 350 units alone: on seed 9109 their artillery was standing where that leg passed and
@@ -654,3 +659,71 @@ field, all of a needle's shot and a rounding error off a shell, and that your ar
 what needs the cover. All eight cards still reach from their title to their begin button at
 every window height from 900 down to 420, which is the test that matters for a fixed panel:
 one line too many is a button off the bottom of the screen with nothing to click.
+
+## What the first outside hand found
+
+Every measurement above was taken by the person who wrote the interface, and a harness written
+by that person asks the questions the interface already answers. The first hand that was not
+mine got four complaints out of the first few minutes, and each one turned out to be a
+mechanism rather than a matter of taste.
+
+Clicking to select did nothing at all. The same button selects and orbits, so a press has to
+be read as one or the other, and the line was five pixels of travel: a hand that slid six
+between press and release got a camera nudge and no selection, with nothing on screen to say
+why. It is twelve pixels now, inside the slip of a firm click and under any drag meant as one,
+and erring in this direction costs a camera nudge that the next drag just repeats.
+Selection survives 0, 3, 6, 9 and 12 pixels of slip, and 14 and 20 still read as drags.
+
+The camera turned like a turntable rather than like a head. An orbit rig walks the camera
+around a fixed centre, so the one part of the picture that holds still is whatever the cursor
+started on, and at command range that reads as the theatre being spun. The drag holds the
+position and pushes the centre around it instead, so 120 pixels turns the view about thirty
+degrees and moves the camera nothing at all. A followed wing writes that centre every frame,
+so the same drag still swings around whatever the camera has been told to hold.
+
+The pan was not so much reversed as sideways in both axes. It slid the centre along the pair
+of axes the volume hangs off, which do not turn with yaw, so a 30 pixel horizontal drag moved
+the picture seven pixels while a vertical one moved it twenty four pixels sideways, and which
+axis did what depended on where the camera happened to be standing. Along the camera's own
+right and up it is a grab: one pixel of picture per pixel of hand on each axis, with the
+conversion derived from the frustum, since the hand tuned constant it replaced was 18 percent
+fast and a grab that slips accumulates its error for as long as the drag lasts. Panning is
+also what you do continuously while reading a board, and a drag occupies the hand that selects
+and orders, so wasd carries the picture at 600 pixels a second
+and nothing needs the middle button any more.
+
+The reticle sat off the pointer for two reasons that added up. The cursor was resolved against
+the camera as it was and then drawn after the camera eased, which left the cross thirteen
+pixels behind the pointer for as long as a drag lasted. And a selected wing snapped the aim
+onto itself: nudging a wing means pointing just off it, so its own hulls are inside the pick
+radius, and the cross jumped as much as fifty pixels back onto the centroid it was already
+standing on, while describing an order to stay put. Camera first, then the step, then the
+drawing, and no wing snaps to itself. The cross now reads zero pixels of error at 0, 20, 40
+and 60 pixels off a selected hull, and zero on every frame of an orbit.
+
+That last fix cost Under the Aegis two seeds in eight, and the reason is worth writing down.
+The pick reads a friendly wing at forty pixels against an enemy at twenty, on purpose, because
+picking the wrong friendly selects it and a second click undoes that, while picking the wrong
+enemy is an order at comm delay that cannot be recalled. Aegis is the mission where our own
+screen flies over their swarm, so the harness's click on their centroid landed on us and went
+out as a move order, and the self snap had been quietly turning that mis-click into stay put,
+which kept the wing in the brawl by accident. The harness had been clicking blind, checking
+only that something was under the cursor. It now walks their drawn hulls until the cursor
+reads as the wing being sent at, which is the slide a player makes when the comm line names
+the wrong wing.
+
+Aegis is eight of eight again, and the shape of the win changed. Every seed closes between 48
+and 59 seconds where the old build ran 44 to 88, and the seeds that used to keep the most hulls
+keep well under that now: 1000 at fourteen of twenty four, 6284 at thirteen and 2273 at eleven
+finish with six, nine and seven, while the other five move by three hulls or less either way.
+The orders that used to go astray were parking wings that now get committed, and a screen flown
+into their swarm on purpose loses ships doing it. The two seeds that fell over while the
+harness clicked blind, 2273 and 7777, lost the whole fleet rather than a few hulls, which is
+what a plan looks like when half of it never went out. Three seeds over all seven missions is
+21 of 21 with the walking click in, including the Shoal seed that had been the standing loss.
+
+Two bindings moved to make room for the pan: every wing at once is `q` and the device arms on
+`e`, and the legend says so. All three hand harnesses had to be told, and until they were they
+panned the camera instead of arming the charge, which is how the pass immediately after the
+input work lost most of its device missions and sent me looking for a fault in the sim that
+was not there.

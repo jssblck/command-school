@@ -229,7 +229,7 @@ async function fly(page: Page, seed: number, loud: boolean): Promise<string> {
 
     // Let the follow camera arrive before projecting through it.
     await beat(page, 0.4)
-    await page.keyboard.press('d')
+    await page.keyboard.press('e')
     px = await hivePx()
     if (px) await page.mouse.move(px.x, px.y)
     await beat(page, 0.05)

@@ -90,7 +90,7 @@ function enter(index: number): void {
   carry = 0
 
   frameFleets(world)
-  draw(s, 0)
+  draw(s, 0, 0)
 
   // The volume is built and drawn behind the briefing, held at T+0. Reading the
   // orders over the actual deployment is worth more than reading them over black.
@@ -159,12 +159,16 @@ function centroid(ships: { pos: { x: number; y: number; z: number } }[]): Vector
   return ships.length > 0 ? at.divideScalar(ships.length) : at
 }
 
-/** The renderer and console, which read simulation state and never change it. */
-function draw(s: Session, dt: number): void {
+/**
+ * The renderer and console, which read simulation state and never change it. Two
+ * clocks: the interface runs on real seconds, since the camera keeps moving while
+ * the battle is held, and everything the simulation owns runs on its own.
+ */
+function draw(s: Session, real: number, sim: number): void {
   s.terrain.update(stage.camera)
   s.fleet.update(s.world)
-  s.controls.update()
-  s.fx.update(s.world, dt)
+  s.controls.update(real)
+  s.fx.update(s.world, sim)
   s.world.events.length = 0
   s.overlay.update(s.world, s.controls, stage.camera)
   s.hud.update()
@@ -174,6 +178,11 @@ function frame(now: number): void {
   const dt = Math.min(0.1, (now - last) / 1000)
   last = now
   const s = session
+
+  // Before anything reads the camera. The rig eases, so a cursor resolved against the
+  // camera as it was and then drawn after it moved sat thirteen pixels behind the pointer
+  // for as long as the hand kept orbiting, which is a reticle that does not track.
+  rig.apply(stage.camera, dt)
 
   if (s) {
     const running = s.world.outcome === 'running' && s.live && !s.controls.paused
@@ -191,7 +200,7 @@ function frame(now: number): void {
     } else {
       carry = 0
     }
-    draw(s, running ? dt : 0)
+    draw(s, dt, running ? dt : 0)
 
     if (s.world.outcome !== 'running' && s.live) {
       s.settle += dt
@@ -199,7 +208,6 @@ function frame(now: number): void {
     }
   }
 
-  rig.apply(stage.camera, dt)
   stage.render()
   requestAnimationFrame(frame)
 }
@@ -273,13 +281,16 @@ Object.assign(window, {
       // is no steps, the clock never reaches the mark, and the run hangs there until something
       // else moves it. Overshooting by one step costs nothing.
       for (let i = 0; i < Math.ceil(seconds / DT); i++) {
+        // Camera first, then the step, then the drawing, which is the order the real loop
+        // runs in: a harness that resolved its clicks against a camera one step out of date
+        // would be measuring an interface the player never uses.
+        rig.apply(stage.camera, DT)
         if (s.world.outcome === 'running') {
           think(s.world, s.enemy, DT)
           if (auto) think(s.world, s.auto, DT)
           step(s.world)
         }
-        draw(s, DT)
-        rig.apply(stage.camera, DT)
+        draw(s, DT, DT)
       }
     },
     /**

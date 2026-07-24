@@ -247,66 +247,58 @@ class Hand {
           dist: ${Math.min(4200, Math.hypot(d.x, d.y, d.z) * 1.3 + 260)},
           at: { x: ${(mine.x + at.at.x) / 2}, y: ${(mine.y + at.at.y) / 2}, z: ${(mine.z + at.at.z) / 2} } })`)
         await settle(this.page)
-        const px = (await this.page.evaluate(`window.cs.project(${JSON.stringify(at.at)})`)) as {
-          x: number
-          y: number
-        } | null
-        if (!px) {
-          this.notes.push(`${name} will not project at T+${await this.clock()}`)
-          return
-        }
-        await this.page.mouse.move(px.x, px.y)
-        await settle(this.page)
-        const under = (await this.page.evaluate('window.cs.controls.hover')) as number | null
-        if (under === null) {
-          /*
-           * Their centroid is empty space whenever the wing has spread around it, so this is the
-           * slide a player makes onto an actual hull. One slide is enough now that the clock is
-           * held: the hull is still where it projected when the cursor gets there. This used to
-           * try three times and leave a note measuring their nearest hull 21 and 26 pixels off
-           * an 18 pixel pick, which read as a pick that could not reach and was really the world
-           * stepping through the round trip.
-           */
-          const slide = (await this.page.evaluate(`(() => {
-            const w = window.cs.world
-            const sq = w.squadrons.find((s) => s.name === ${JSON.stringify(name)})
-            let live = 0, drawn = 0
-            for (const id of sq.ships) {
-              const s = w.ships.find((x) => x.id === id)
-              if (!s || !s.alive) continue
-              live++
-              if (!w.seen.blue.has(id)) continue
-              drawn++
-              const p = window.cs.project(s.pos)
-              if (p) return { at: p, live: live, drawn: drawn }
-            }
-            return { at: null, live: live, drawn: drawn }
-          })()`)) as {
-            at: { x: number; y: number } | null
-            live: number
-            drawn: number
+        /*
+         * Every pixel worth pointing at: their centroid first, then each hull of theirs that
+         * is drawn. The centroid is empty space whenever the wing has spread around it, and on
+         * Aegis it is worse than empty, because our own screen flies over their swarm and the
+         * pick reads a friendly wing at forty pixels over an enemy at twenty. That bias is
+         * deliberate and it is right, since a mis-picked enemy is an order that cannot be
+         * recalled, but it means a click on their centroid goes out as a move order and the
+         * wing it was meant to send stands still. Walking their hulls until the cursor reads
+         * as them is the slide a player makes when the comm line names the wrong wing.
+         *
+         * One pass over the list is enough now that the clock is held: a hull is still where
+         * it projected when the cursor gets there. This used to try three times and leave a
+         * note measuring their nearest hull 21 and 26 pixels off an 18 pixel pick, which read
+         * as a pick that could not reach and was really the world stepping through the round
+         * trip.
+         */
+        const spots = (await this.page.evaluate(`(() => {
+          const w = window.cs.world
+          const sq = w.squadrons.find((s) => s.name === ${JSON.stringify(name)})
+          const out = { id: sq.id, at: [], live: 0, drawn: 0 }
+          const c = window.cs.project(sq.centroid)
+          if (c) out.at.push(c)
+          for (const id of sq.ships) {
+            const s = w.ships.find((x) => x.id === id)
+            if (!s || !s.alive) continue
+            out.live++
+            if (!w.seen.blue.has(id)) continue
+            out.drawn++
+            const p = window.cs.project(s.pos)
+            if (p) out.at.push(p)
           }
-          const hull = slide.at
-          if (!hull) {
-            this.notes.push(
-              `${name} has ${slide.live} hulls, ${slide.drawn} of them drawn, and none on screen ` +
-                `at T+${await this.clock()}`,
-            )
-            return
-          }
-          await this.page.mouse.move(hull.x, hull.y)
+          return out
+        })()`)) as { id: number; at: { x: number; y: number }[]; live: number; drawn: number }
+
+        let spot: { x: number; y: number } | null = null
+        const tries = spots.at.slice(0, 6)
+        for (const p of tries) {
+          await this.page.mouse.move(p.x, p.y)
           await settle(this.page)
-          if ((await this.page.evaluate('window.cs.controls.hover')) === null) {
-            // Nothing moved between the projection and the cursor, so a drawn hull that does not
-            // pick up under its own pixel is the interface and not the plan.
-            this.notes.push(`nothing picked up on ${name} with a hull drawn at ${hull.x.toFixed(0)},${hull.y.toFixed(0)}`)
-            return
+          if ((await this.page.evaluate('window.cs.controls.hover')) === spots.id) {
+            spot = p
+            break
           }
-          await this.page.mouse.click(hull.x, hull.y, { button: 'right' })
-          await this.beat()
+        }
+        if (!spot) {
+          this.notes.push(
+            `nothing reads as ${name} at T+${await this.clock()}, with ${spots.live} hulls, ` +
+              `${spots.drawn} of them drawn and ${tries.length} pixels tried`,
+          )
           return
         }
-        await this.page.mouse.click(px.x, px.y, { button: 'right' })
+        await this.page.mouse.click(spot.x, spot.y, { button: 'right' })
         await this.beat()
         return
       }
@@ -371,7 +363,7 @@ class Hand {
       z: near.at.z - near.from.z,
     }
     await this.select(name)
-    await this.page.keyboard.press('d')
+    await this.page.keyboard.press('e')
     await this.page.evaluate(`window.cs.look({ yaw: ${Math.atan2(-d.x, -d.z)}, pitch: 0.34, dist: 420,
       at: { x: ${near.at.x}, y: ${near.at.y}, z: ${near.at.z} } })`)
     await settle(this.page)

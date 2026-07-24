@@ -26,6 +26,27 @@ const PICK_RADIUS = 44
  * to restation behind the rock sent seven hulls into thirteen.
  */
 const HOSTILE_RADIUS = 18
+/**
+ * How far the hand may slide between press and release and still have meant a click,
+ * in pixels of travel.
+ *
+ * The same button selects and orbits, so this is the line between the two, and it was
+ * five: a hand that moved six pixels while pressing got a camera nudge instead of the
+ * wing it was pointing at, and got no feedback either way. Selection is the first thing
+ * a player does and it was failing perhaps one press in three. Twelve is about three
+ * millimetres on a desk, which is inside the slip of a firm click and well under any
+ * drag meant as a drag. Nothing is spent by guessing wrong in this direction: a twelve
+ * pixel orbit that is read as a click costs a selection the next click restores.
+ */
+const CLICK_SLOP = 12
+/**
+ * Pan speed for the keys, as the drag in pixels a second they stand in for. Measured
+ * against the frame rather than the volume, since that is what the hand is reading: 600
+ * crosses the screen in about two seconds whatever the zoom, and the missions differ in
+ * scale by a factor of four.
+ */
+const KEY_PAN = 600
+const PAN_KEYS = new Set(['w', 'a', 's', 'd'])
 
 export type Mode = 'normal' | 'device'
 
@@ -139,6 +160,8 @@ export class Controls {
   private bound: AbortController | null = null
   private down: { x: number; y: number; button: number } | null = null
   private dragged = false
+  /** Keys being held, which is only ever the four the camera pans on. */
+  private readonly held = new Set<string>()
   private losses = 0
   private lossFlush = 0
   private saidDisarmed = false
@@ -167,8 +190,14 @@ export class Controls {
     window.addEventListener('keydown', (e) => this.onKey(e), { signal })
     window.addEventListener('keyup', (e) => {
       if (e.key === 'Shift') this.altitude = false
+      this.held.delete(e.key.toLowerCase())
     }, { signal })
-    window.addEventListener('blur', () => (this.down = null), { signal })
+    // A key held across a window switch never gets its keyup, and a camera that pans
+    // forever after an alt-tab is a game that has to be reloaded to be played.
+    window.addEventListener('blur', () => {
+      this.down = null
+      this.held.clear()
+    }, { signal })
   }
 
   detach(): void {
@@ -176,6 +205,7 @@ export class Controls {
     this.bound = null
     this.down = null
     this.altitude = false
+    this.held.clear()
   }
 
   /**
@@ -222,11 +252,54 @@ export class Controls {
   }
 
   /**
+   * Carry the camera across the volume while wasd is held.
+   *
+   * A key is the gesture this wants to be rather than a button drag: panning is what
+   * you do continuously while reading a board, and a drag occupies the hand that also
+   * selects and orders. Middle drag still pans, since it is the faster way to cross a
+   * long distance once, but nothing needs it.
+   */
+  private slide(dt: number): void {
+    let x = 0
+    let y = 0
+    if (this.held.has('d')) x += 1
+    if (this.held.has('a')) x -= 1
+    if (this.held.has('s')) y += 1
+    if (this.held.has('w')) y -= 1
+    if (x === 0 && y === 0) return
+    this.letGo()
+    // Normalised on the diagonal, so holding two keys is not half again as fast as one.
+    const k = (x !== 0 && y !== 0 ? Math.SQRT1_2 : 1) * KEY_PAN * dt
+    // A drag moves the picture and a key moves the camera, which are opposite things,
+    // so the keys pass the drag that would have taken the camera the same way.
+    this.drag(-x * k, -y * k)
+  }
+
+  /**
+   * A gesture in pixels, applied to the camera as the world offset that carries the
+   * picture exactly that far, so whatever was under the cursor stays under it. Pixels
+   * are worth more world the further out the camera stands, and the conversion belongs
+   * to the frustum rather than to taste: a hand tuned constant was 18 percent fast, and
+   * a grab that slips is worse than one that is simply the wrong speed, since the error
+   * accumulates for as long as the drag lasts.
+   */
+  private drag(dx: number, dy: number): void {
+    const perPixel = (2 * Math.tan((this.camera.fov * Math.PI) / 360)) / window.innerHeight
+    const scale = this.rig.dist * perPixel
+    this.rig.pan(-dx * scale, dy * scale)
+  }
+
+  /**
    * Called once per frame, after the simulation. Drops dead squadrons out of the
    * selection, refreshes the aim point, and turns simulation events the player
    * would have been told about over the comm channel into log lines.
+   *
+   * The seconds are real ones rather than simulated ones, because the camera keeps
+   * moving while the battle is held: looking around a paused board is most of what
+   * the pause is for.
    */
-  update(): void {
+  update(dt: number): void {
+    this.slide(dt)
     for (const id of [...this.selected]) {
       const sq = squadronById(this.world, id)
       if (!sq || aliveCount(this.world, sq) === 0) this.selected.delete(id)
@@ -295,7 +368,7 @@ export class Controls {
     this.pointer.x = e.clientX
     this.pointer.y = e.clientY
     if (!this.down) return
-    const far = Math.abs(e.clientX - this.down.x) + Math.abs(e.clientY - this.down.y) > 5
+    const far = Math.abs(e.clientX - this.down.x) + Math.abs(e.clientY - this.down.y) > CLICK_SLOP
     if (!far) return
     this.dragged = true
     // Left drags orbit and middle drags pan. A right drag does nothing on
@@ -307,7 +380,7 @@ export class Controls {
       // centre, and left together the follow would drag the view back the next frame and
       // the pan would read as broken. Orbit and zoom are safe: they leave the centre alone.
       this.letGo()
-      this.rig.pan(e.movementX, e.movementY)
+      this.drag(e.movementX, e.movementY)
     }
   }
 
@@ -368,19 +441,27 @@ export class Controls {
 
   private onKey(e: KeyboardEvent): void {
     if (e.repeat) return
+    // Lower cased, because shift is a modifier here and not a different key: it means
+    // altitude, so every letter binding has to survive being pressed while it is down.
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
 
-    if (e.key >= '1' && e.key <= '9') {
+    if (PAN_KEYS.has(key)) {
+      this.held.add(key)
+      return
+    }
+
+    if (key >= '1' && key <= '9') {
       // Against the full roster, so the number over a wing never changes. Pressing the
       // number of a wing that has been wiped out selects nothing: `primary` skips it and
       // `update` drops it next frame, which is the right answer to asking for the dead.
-      const sq = this.roster()[Number(e.key) - 1]
+      const sq = this.roster()[Number(key) - 1]
       if (!sq) return
       if (!e.shiftKey) this.selected.clear()
       this.selected.add(sq.id)
       return
     }
 
-    switch (e.key) {
+    switch (key) {
       case 'Shift':
         this.altitude = true
         return
@@ -400,13 +481,16 @@ export class Controls {
         if (next) this.selected.add(next.id)
         return
       }
-      case 'a':
+      // Every wing at once, and the device, both moved off a and d when those became
+      // half of the pan. They are the two bindings a player uses without looking, so
+      // they sit either side of the pan block rather than somewhere mnemonic.
+      case 'q':
         for (const sq of this.live()) this.selected.add(sq.id)
         return
       case 'z':
       case 'x':
       case 'c': {
-        const stance = e.key === 'z' ? 'tight' : e.key === 'x' ? 'open' : 'wide'
+        const stance = key === 'z' ? 'tight' : key === 'x' ? 'open' : 'wide'
         for (const sq of this.selection()) {
           if (issueStance(this.world, sq, stance)) this.say(`${sq.name} ${stance}`, 'order')
         }
@@ -418,7 +502,7 @@ export class Controls {
           this.say(`${sq.name} hold`, 'order')
         }
         return
-      case 'd':
+      case 'e':
         this.arm()
         return
       case 'f': {
@@ -620,7 +704,20 @@ export class Controls {
     // an enemy knot is the whole point of snapping and stays. Aiming at your own is never
     // a thing anybody means, and pointing at the empty space beside them still says it.
     const ownWing = this.mode === 'device' && on?.side === this.side
-    const wing = on && !ownWing && aliveCount(this.world, on) > 0 ? on : null
+    /*
+     * A wing never snaps the cursor onto itself either, which is the same fault at
+     * closer range: the gesture for nudging a wing is to point just off it, so its own
+     * hulls are inside the pick radius, and the aim jumped to the centroid it is already
+     * standing on. The cross then sat up to fifty pixels from the pointer and the order
+     * it described was to stay put, which reads as a cursor that does not track and an
+     * order button that does nothing.
+     *
+     * Pointing at another of your own wings still means go and stand with them, and that
+     * is worth the snap: it is one gesture for a thing that is otherwise two clicks and
+     * a guess at where they will be.
+     */
+    const self = !!on && this.selected.has(on.id)
+    const wing = on && !ownWing && !self && aliveCount(this.world, on) > 0 ? on : null
 
     // Nearest solid surface along the ray. The point sits on the skin, and the same
     // lift the simulation applies to any destination inside a body carries it out to

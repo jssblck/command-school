@@ -266,7 +266,7 @@ async function holdRun(page: Page): Promise<void> {
 
   // Give ground: everything selected, spread wide, and away from the pursuit. The
   // point of the shot is the clock under pressure, so it wants the fight in frame.
-  await page.keyboard.press('a')
+  await page.keyboard.press('q')
   await page.keyboard.press('c')
   const away = await page.evaluate(() => {
     const cs = (window as unknown as { cs: CsHandle }).cs
@@ -297,7 +297,7 @@ async function bayRun(page: Page): Promise<void> {
   await page.click('.card button.go')
   await settle(page)
 
-  await page.keyboard.press('a')
+  await page.keyboard.press('q')
   await page.keyboard.press('z')
   const flank = await page.evaluate(() => {
     const cs = (window as unknown as { cs: CsHandle }).cs
@@ -319,7 +319,7 @@ async function bayRun(page: Page): Promise<void> {
 
   // The second leg, under the ring, which is the click that needs shift. Held down
   // across the move so the shot is of the vertical plane the order will resolve on.
-  await page.keyboard.press('a')
+  await page.keyboard.press('q')
   const under = await page.evaluate(() => {
     const cs = (window as unknown as { cs: CsHandle }).cs
     const sq = cs.world.squadrons.find((s) => s.side === 'blue')
@@ -378,7 +378,7 @@ async function deviceRun(page: Page): Promise<void> {
   }
 
   await page.keyboard.press(carrier.key)
-  await page.keyboard.press('d')
+  await page.keyboard.press('e')
   if (carrier.free) await page.mouse.move(carrier.free.x, carrier.free.y)
   await settle(page)
   await shot(page, 'device-armed')
