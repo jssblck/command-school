@@ -1,0 +1,479 @@
+:root {
+  --cold: #b6e8ff;
+  --warm: #ffc887;
+  --dim: #4e6478;
+  --line: #1b2d3d;
+  --sel: #7ff0e0;
+  --hot: #ff8f5a;
+  --device: #dda6ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  color: var(--cold);
+  font: 12px/1.45 ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+  -webkit-font-smoothing: antialiased;
+}
+
+#view {
+  position: fixed;
+  inset: 0;
+  display: block;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+#ui > * {
+  pointer-events: auto;
+}
+
+button {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   Console. Everything is flat text over the volume with no panel backgrounds:
+   a filled box would cut a hole in the battle, and the battle is the picture.
+   Legibility comes from a text shadow instead, which costs no area. */
+
+#ui > div {
+  position: fixed;
+  text-shadow:
+    0 0 6px #000,
+    0 0 14px #000;
+}
+
+.hud-header {
+  left: 18px;
+  top: 16px;
+}
+
+.hud-title {
+  font-size: 15px;
+  letter-spacing: 0.22em;
+}
+
+.hud-objective,
+.hud-clock {
+  color: var(--dim);
+}
+
+.hud-clock {
+  margin-top: 4px;
+  letter-spacing: 0.14em;
+}
+
+.hud-clock.held {
+  color: var(--warm);
+}
+
+.hud-scales {
+  left: 18px;
+  top: 86px;
+  width: 186px;
+}
+
+/* A grid rather than a flex row, so the bar's percentage resolves against the cell
+   it is drawn in and nothing else. As a flex item it measured against the whole row,
+   label included, and then shrank to fit: a full fleet drew 143px of a 132px rule,
+   and every reading below full was wrong by its own amount. */
+.hud-scale {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  align-items: center;
+  gap: 8px;
+  height: 15px;
+}
+
+.hud-scale label {
+  font-size: 10px;
+  color: var(--dim);
+}
+
+/* The rule behind each bar is the full opening strength, so an empty bar still shows
+   the scale it emptied out of. It sits in the bar's own cell rather than being pinned
+   over the row, which is what keeps the rule and the percentage from disagreeing. */
+.hud-scale::before {
+  content: "";
+  grid-area: 1 / 2;
+  height: 1px;
+  background: var(--line);
+}
+
+.hud-scale i {
+  grid-area: 1 / 2;
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  transition: width 0.4s ease-out;
+}
+
+.hud-scale.blue i {
+  background: var(--cold);
+  box-shadow: 0 0 8px #4c9ed4;
+}
+
+.hud-scale.red i {
+  background: var(--warm);
+  box-shadow: 0 0 8px #d9773a;
+}
+
+/* -------------------------------------------------------------------------- */
+
+.hud-roster {
+  left: 18px;
+  top: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sq {
+  display: grid;
+  grid-template-columns: 12px 74px 42px 34px 40px auto;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 6px;
+  text-align: left;
+  color: var(--dim);
+  border-left: 2px solid transparent;
+}
+
+.sq:hover,
+.sq.hov {
+  color: #8fb2c8;
+}
+
+.sq.sel {
+  color: var(--sel);
+  border-left-color: var(--sel);
+}
+
+/* A wiped wing keeps its row and its number so the keys under the player's fingers
+   never move. It stops being clickable, because there is nothing left to order. */
+.sq.dead {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.sq.dead .name {
+  text-decoration: line-through;
+}
+
+.sq .key {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.sq .name {
+  letter-spacing: 0.12em;
+}
+
+.sq .cls,
+.sq .state {
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.sq .count {
+  font-variant-numeric: tabular-nums;
+}
+
+.sq .bar {
+  display: block;
+  height: 3px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sq .bar i {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transition: width 0.3s ease-out;
+}
+
+.sq.sel .bar i {
+  box-shadow: 0 0 8px var(--sel);
+}
+
+.sq.hurt .count {
+  color: var(--hot);
+}
+
+.sq.hurt .bar i {
+  background: var(--hot);
+  box-shadow: 0 0 8px var(--hot);
+}
+
+/* -------------------------------------------------------------------------- */
+
+.hud-comm {
+  right: 18px;
+  bottom: 16px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.comm {
+  display: flex;
+  gap: 8px;
+  color: var(--dim);
+  animation: rise 0.25s ease-out;
+}
+
+.comm .at {
+  font-size: 10px;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.comm.order {
+  color: #57c9ff;
+}
+
+.comm.ack {
+  color: var(--sel);
+}
+
+.comm.loss {
+  color: var(--hot);
+}
+
+/* Every device line shares the colour of the arming panel and the cascade, which is the
+   one hue in the interface a player has already been taught to read as the weapon. It
+   used to be the orange of a loss, and losses are the line that arrives in bursts. */
+.comm.device {
+  color: var(--device);
+}
+
+/* Older lines fade toward the top, so the log reads as a channel that is passing
+   rather than as a wall of text competing with the battle. */
+.hud-comm .comm:nth-last-child(n + 5) {
+  opacity: 0.5;
+}
+
+.hud-comm .comm:nth-last-child(n + 7) {
+  opacity: 0.25;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+
+.hud-armed {
+  left: 50%;
+  bottom: 92px;
+  transform: translateX(-50%);
+  text-align: center;
+  color: var(--device);
+  display: none;
+  letter-spacing: 0.16em;
+}
+
+.hud-armed.on {
+  display: block;
+}
+
+.hud-armed .hot {
+  color: #ffe9ff;
+}
+
+.hud-legend {
+  left: 18px;
+  bottom: 16px;
+  color: var(--dim);
+  font-size: 10px;
+  opacity: 0.55;
+  line-height: 1.7;
+}
+
+.hud-legend b {
+  color: #8fb2c8;
+  font-weight: 400;
+}
+
+/* --------------------------------------------------------------------------
+   Briefing and after action. These get a wash over the volume because they are
+   the one time the player is meant to be reading rather than watching. */
+
+/* Centred with auto margins rather than place-items, because a card taller than
+   the window has to stay scrollable from its top: centred grid and flex items
+   overflow both edges of a scroll container and the begin button goes with them.
+   Overwhelm's briefing is 670px and the shortest laptop is 640. */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 24px;
+  background: radial-gradient(ellipse at center, #00060caa 0%, #000000ee 70%);
+  animation: fade 0.4s ease-out;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.card {
+  width: min(560px, 88vw);
+  margin: auto;
+  flex: 0 0 auto;
+}
+
+.card .eyebrow {
+  color: var(--dim);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.card h1 {
+  margin: 10px 0 18px;
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+}
+
+.card.lost h1 {
+  color: var(--hot);
+}
+
+.card blockquote {
+  margin: 0 0 20px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+  color: var(--warm);
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+.card p {
+  margin: 0 0 12px;
+  color: #8fb2c8;
+  max-width: 54ch;
+}
+
+.card .teaches {
+  margin: 20px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  max-width: 54ch;
+}
+
+.card .stats {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  gap: 3px 24px;
+  margin: 0 0 12px;
+}
+
+.card .stats dt {
+  color: var(--dim);
+}
+
+.card .stats dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.card .buttons {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.card button {
+  margin-top: 22px;
+  padding: 9px 18px;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 11px;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.card button:hover,
+.card button:focus-visible {
+  color: var(--sel);
+  border-color: var(--sel);
+  outline: none;
+}
+
+.card button.go {
+  color: var(--cold);
+  border-color: #2e5468;
+}
+
+/* The ladder sits out at the edge rather than in the card, because it is
+   navigation and the card is the briefing. */
+.ladder {
+  position: fixed;
+  right: 26px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.ladder button {
+  color: var(--dim);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.ladder button:hover:not(:disabled) {
+  color: var(--sel);
+  opacity: 1;
+}
+
+.ladder button.here {
+  color: var(--cold);
+  opacity: 1;
+}
+
+.ladder button.locked {
+  opacity: 0.22;
+  cursor: default;
+}
