@@ -269,7 +269,15 @@ function dust(body: Body): Points {
     col[i * 3] = c.r * mag
     col[i * 3 + 1] = c.g * mag
     col[i * 3 + 2] = c.b * mag
-    size[i] = ring ? rng.range(1.4, 4.2) : rng.range(2.2, 7)
+    // Grains are this small because a hull has to stay the brightest thing anywhere near
+    // it. At Shoal's contact range the old seven unit grains clamped to nine pixel discs
+    // and the additive sum of a few thousand of them sat at hull brightness, so our own
+    // needles inside the belt were indistinguishable from rock. Where the fleet is, is
+    // something the fleet knows and the roster says out loud; a field that buries it is
+    // the volume contradicting the console. Finer grains cost the belt nothing a player
+    // reads off it, since its edge and its banding come from where the dust is rather
+    // than from how fat each piece of it is drawn.
+    size[i] = ring ? rng.range(0.9, 2.5) : rng.range(1.3, 4.2)
     i++
   }
 
