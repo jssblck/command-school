@@ -202,7 +202,7 @@ function draw(s: Session, real: number, sim: number): void {
   s.controls.update(real)
   s.fx.update(s.world, sim)
   s.world.events.length = 0
-  s.overlay.update(s.world, s.controls, stage.camera)
+  s.overlay.update(s.world, s.controls, stage.camera, !omniscient)
   s.hud.update()
 }
 

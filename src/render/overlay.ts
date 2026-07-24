@@ -1,7 +1,7 @@
 import { Color, Group, PerspectiveCamera, Vector3 } from 'three'
 import { cls } from '../sim/classes'
 import { formationRadius } from '../sim/formation'
-import { DEVICE_RADIUS, DEVICE_RANGE, emptyTrack, liftClear, predictTrack } from '../sim/step'
+import { DEVICE_RADIUS, DEVICE_RANGE, GHOST_MEMORY, emptyTrack, liftClear, predictTrack } from '../sim/step'
 import { aliveCount, sensorFactorAt, squadronById } from '../sim/world'
 import type { Squadron, World } from '../sim/types'
 import type { Controls } from '../ui/controls'
@@ -72,9 +72,11 @@ export class Overlay {
     this.group.add(this.lines.lines)
   }
 
-  update(w: World, c: Controls, camera: PerspectiveCamera): void {
+  update(w: World, c: Controls, camera: PerspectiveCamera, fog: boolean): void {
     this.cam = camera
     this.lines.begin()
+
+    if (fog) this.ghosts(w)
 
     for (const sq of w.squadrons) {
       if (aliveCount(w, sq) === 0) continue
@@ -169,6 +171,64 @@ export class Overlay {
       _b.set(_a.x + dx, _a.y, _a.z + dz)
       _c.set(_a.x + dx * 0.7, _a.y, _a.z + dz * 0.7)
       this.line(_b, _c, ATTACK, 0.9, 0.9)
+    }
+  }
+
+  /**
+   * Remembered contacts, one mark per wing rather than one per hull. A ghost is a claim
+   * about the past, so it is drawn the way the player's own annotations are drawn, a hollow
+   * ring at the spread the wing was last holding with the usual line dropped to the
+   * reference plane, and it thins out as the sighting ages.
+   *
+   * It lives here rather than in the fleet because a ghost is not in the volume. The version
+   * that was, a small hollow point of light per remembered hull, failed at both ranges: from
+   * across the theatre a dozen of them were a grey smudge that said nothing about how the
+   * wing was arranged, and up close they were faint rings at an unreadable depth, in the one
+   * mission whose briefing promises a player can tell a stale contact from a live hull.
+   */
+  private ghosts(w: World): void {
+    for (const sq of w.squadrons) {
+      if (sq.side === 'blue') continue
+      let n = 0
+      let oldest = w.t
+      _a.set(0, 0, 0)
+      for (const id of sq.ships) {
+        const g = w.seen.blue.has(id) ? undefined : w.ghosts.get(id)
+        if (!g) continue
+        _a.x += g.pos.x
+        _a.y += g.pos.y
+        _a.z += g.pos.z
+        oldest = Math.min(oldest, g.at)
+        n++
+      }
+      if (n === 0) continue
+      _a.divideScalar(n)
+      // The oldest sighting in the wing rather than the newest, so the mark is only as
+      // fresh as the least of what it is claiming.
+      const age = 1 - (w.t - oldest) / GHOST_MEMORY
+      if (age <= 0) continue
+      // Age reaches the mark on a floor rather than on a straight ramp. Drawn straight,
+      // a ghost went unreadable about ten seconds into a fourteen second memory, so the
+      // interface dropped the contact while the fleet still held it. Dim until it expires
+      // and then gone is the honest shape: the mark lasts exactly as long as the memory.
+      const fade = 0.3 + age * 0.7
+
+      // Spread needs a second pass, since the centre it is measured from comes out of the
+      // first.
+      let r = 0
+      for (const id of sq.ships) {
+        const g = w.seen.blue.has(id) ? undefined : w.ghosts.get(id)
+        if (g) r = Math.max(r, Math.hypot(g.pos.x - _a.x, g.pos.y - _a.y, g.pos.z - _a.z))
+      }
+      // The tick is the mark and the ring is a reading off it, so the ring is only drawn
+      // when the wing was remembered spread wider than the tick itself. Floored on screen
+      // instead, it drew a hoop around a single remembered hull, which claims a spread
+      // nobody ever saw, and two overlapping wings came out as one mark with a decoration.
+      const sp = this.span(_a, 0.02)
+      this.cross(_a, sp, GHOST, fade * 0.8)
+      if (r > sp) this.circle(_a, r * 1.25, GHOST, fade * 0.55)
+      _b.set(_a.x, 0, _a.z)
+      this.dashed(_a, _b, GHOST, fade * 0.26, 26)
     }
   }
 

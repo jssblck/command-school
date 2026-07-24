@@ -115,7 +115,7 @@ export const SCENARIOS: Scenario[] = [
       'You have eyes: unarmed, fast, and able to see two and a half times as far as anything else you own. Lose them and you are commanding blind.',
     ],
     teaches:
-      'Dim outlined contacts are stale ghosts, not live hulls. Their guns can cross the belt unseen, so keep an eye alive and out of the dust.',
+      'A grey tick with a drop line is a memory, not a contact: it marks where a wing was when you last had it, and the ring around it how wide it was spread. Their guns can cross the belt unseen, so keep an eye alive and out of the dust.',
     build(seed) {
       const w = shell({ kind: 'annihilate', text: 'Destroy the enemy fleet' }, seed, 0.55, 900)
       addBody(w, {

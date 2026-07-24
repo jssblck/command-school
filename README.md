@@ -267,7 +267,7 @@ name, because renumbering the roster under the player's fingers is how an order 
 the courier reaches the artillery instead, but the row says lost now.
 
 Rings with nothing inside them in that same frame turned out to be two separate faults. Most
-were ghosts, which are drawn as small grey hollow rings because a remembered contact is a
+were ghosts, the mark for a contact the fleet remembers and can no longer see, which is a
 claim about where a hull was and must never read as a hull. The claim was false. A ghost is
 dropped when the hull died where the fleet could see it, and that test ran after the sensor
 sets were rebuilt, which is after dead hulls have been dropped from them, so it could never
@@ -727,3 +727,61 @@ Two bindings moved to make room for the pan: every wing at once is `q` and the d
 panned the camera instead of arming the charge, which is how the pass immediately after the
 input work lost most of its device missions and sent me looking for a fault in the sim that
 was not there.
+
+## What the shot album could not show
+
+The shot fixture takes thirty two frames across the campaign at fixed seeds and fixed cameras,
+which is what makes a visual change comparable against the frame before it. Two of the faults
+below were in the fixture rather than in the game, and fixing those is what surfaced the rest.
+
+The Shoal's debris belt was burying our own fleet. Grains are points with their pixel size
+clamped at nine, and at the range a contact frame is shot from a good part of the belt sat on
+that clamp, so a few thousand of them summed additively to hull brightness and our own needles
+inside the field were the same grey as rock. Four variants over the Shoal's contact frame and
+the Keel's ring deployment, one dimmer, one finer, one both, settled it on size alone, since
+cutting brightness either did less or erased the field. Ring grains run 0.9 to 2.5 units now
+against 1.4 to 4.2 and field grains 1.3 to 4.2 against 2.2 to 7, which costs the belt nothing a
+player reads off it: its edge and its banded gaps come from where the dust is rather than from
+how fat each piece of it is drawn. The Last Exam's deployment went from two grey smears to red's
+clusters visible inside the field, both ring bands apart, and the reference grid reading through
+the dust for depth.
+
+Then the album turned out to be omniscient. Drawing red's whole fleet was implied by the same
+flag that skips the briefing and hands blue to its autopilot, so all thirty two frames were of a
+volume no player will ever be looking at. Red's dispositions are most of what a commander does
+not know, and a fixture that photographs them cannot tell whether the fog reads: First Contact
+opened its shot with six of red's hulls plainly on screen beside a THEIRS bar reading nearly
+zero, which is the console and the volume disagreeing about the same fact. Fog is its own switch
+now. The deployment shot also lost its camera, which had been backing off until every live hull
+was in frame, a framing that under fog stands well back to hold hulls that are not drawn and
+pushes our own fleet into a corner. A fixture that poses its own opening shot can never catch
+the game's opening being wrong, so that shot photographs whatever camera the game left, and
+First Contact's deployment is now ten legible needles, a moon, an empty volume and an empty
+enemy bar.
+
+The comm channel in those frames was spending its nine lines on the same sentence. An order to
+several wings posts one acknowledgement per wing, so three wings moving together wrote three
+identical lines and the next order pushed something else off the top. A repeat counts up on the
+line already there now, x3 beside it, with the clock moving to the latest saying of it so the
+timestamp column stays in order.
+
+No frame in the album holds a stale ghost, so photographing one took a probe that walks a
+mission four seconds at a time and stops where blue is holding a wing it can no longer see. At
+T+31 on the Shoal it holds three hulls of THORN and one of VEIL with nothing in sensor range at
+all, and that frame is why the mark was never worth photographing: one small hollow point of
+light per remembered hull, colourless, with no line dropped to the reference plane. From across
+the theatre a dozen of those are a grey smudge that says nothing about how the wing was
+arranged, and from inside they are faint rings floating at a depth the picture never gives, in
+the one mission whose card promises a player can tell a stale contact from a live hull.
+
+A ghost is a claim about the past rather than a thing in the volume, so it is drawn where the
+player's own annotations are drawn, one mark per wing instead of one per hull: a three axis tick
+at the centre of what is remembered, the dashed drop line every other mark in the interface
+carries, and a ring at the spread the wing was last holding, drawn only when that spread comes
+out wider than the tick itself. Floored on screen instead, the ring drew a hoop around a single
+remembered hull, claiming a spread nobody ever saw, and two wings remembered in the same place
+came out as one mark with a decoration. Age reaches the mark on a floor rather than on a
+straight ramp, since drawn straight it went unreadable about ten seconds into a fourteen second
+memory, which is the console dropping a contact the fleet still holds. The Shoal's card
+describes the tick and the ring, and the drawing this replaced was the last thing using the
+hollow branch of the core shader, so both went.

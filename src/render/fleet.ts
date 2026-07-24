@@ -16,10 +16,9 @@ import {
 } from 'three'
 import { cls } from '../sim/classes'
 import { formationRadius } from '../sim/formation'
-import { GHOST_MEMORY } from '../sim/step'
 import { shipById } from '../sim/world'
 import type { ClassId, Ship, Side, World } from '../sim/types'
-import { DAMAGE, GHOST, SIDE_CORE, SIDE_HULL } from './palette'
+import { DAMAGE, SIDE_CORE, SIDE_HULL } from './palette'
 import { uPointScale } from './shared'
 import { Streaks } from './fx'
 import { baryGeometry, Instances, shellMaterial, wireMaterial } from './wire'
@@ -79,7 +78,6 @@ export class Fleet {
   private readonly fields: Instances
   private readonly trails = new Streaks(1400)
   private readonly cores: CoreCloud
-  private readonly ghosts: CoreCloud
   private readonly quat = new Quaternion()
   private readonly dir = new Vector3()
   private readonly mid = new Vector3()
@@ -98,9 +96,8 @@ export class Fleet {
     // Detail 4, because a field can fill half the screen and detail 3 shows its
     // facets on the silhouette, which is the one place the eye is looking.
     this.fields = new Instances(new IcosahedronGeometry(1, 4), 96, shellMaterial())
-    this.cores = new CoreCloud(1200, false)
-    this.ghosts = new CoreCloud(400, true)
-    this.group.add(this.fields.mesh, this.trails.lines, this.cores.points, this.ghosts.points)
+    this.cores = new CoreCloud(1200)
+    this.group.add(this.fields.mesh, this.trails.lines, this.cores.points)
   }
 
   visible(w: World, s: Ship): boolean {
@@ -154,7 +151,6 @@ export class Fleet {
     for (const inst of this.hulls.values()) inst.end()
     this.trails.end()
     this.cores.end()
-    this.drawGhosts(w)
   }
 
   /**
@@ -206,23 +202,6 @@ export class Fleet {
     this.fields.end()
   }
 
-  /**
-   * Remembered contacts. They are drawn hollow and colourless so they can never
-   * be mistaken for a live hull, and they fade with age, because the whole point
-   * of a ghost is that it is a claim about the past.
-   */
-  private drawGhosts(w: World): void {
-    this.ghosts.begin()
-    if (this.fog && this.viewSide === 'blue') {
-      for (const [id, g] of w.ghosts) {
-        if (w.seen.blue.has(id)) continue
-        const fade = 1 - (w.t - g.at) / GHOST_MEMORY
-        if (fade <= 0) continue
-        this.ghosts.add(g.pos, GHOST, cls(g.cls).size * 2.4, fade * 0.6)
-      }
-    }
-    this.ghosts.end()
-  }
 }
 
 /**
@@ -238,7 +217,7 @@ class CoreCloud {
   private readonly alpha: BufferAttribute
   private n = 0
 
-  constructor(readonly capacity: number, hollow: boolean) {
+  constructor(readonly capacity: number) {
     this.pos = new BufferAttribute(new Float32Array(capacity * 3), 3)
     this.col = new BufferAttribute(new Float32Array(capacity * 3), 3)
     this.siz = new BufferAttribute(new Float32Array(capacity), 1)
@@ -248,7 +227,7 @@ class CoreCloud {
     geo.setAttribute('pcolor', this.col)
     geo.setAttribute('psize', this.siz)
     geo.setAttribute('palpha', this.alpha)
-    this.points = new Points(geo, coreMaterial(hollow))
+    this.points = new Points(geo, coreMaterial())
     this.points.frustumCulled = false
   }
 
@@ -274,7 +253,7 @@ class CoreCloud {
   }
 }
 
-function coreMaterial(hollow: boolean): ShaderMaterial {
+function coreMaterial(): ShaderMaterial {
   return new ShaderMaterial({
     uniforms: { uScale: uPointScale },
     vertexShader: /* glsl */ `
@@ -293,7 +272,7 @@ function coreMaterial(hollow: boolean): ShaderMaterial {
         // dot however far the camera pulls back, and the ceiling means the light
         // stays a light: without it the core grows into a ball that swallows the
         // wireframe it is supposed to be mounted on.
-        gl_PointSize = clamp(psize * uScale / d, ${hollow ? '5.0' : '4.0'}, ${hollow ? '30.0' : '17.0'});
+        gl_PointSize = clamp(psize * uScale / d, 4.0, 17.0);
         gl_Position = projectionMatrix * mv;
       }
     `,
@@ -303,11 +282,7 @@ function coreMaterial(hollow: boolean): ShaderMaterial {
       void main() {
         float r = length(gl_PointCoord - 0.5) * 2.0;
         if (r > 1.0) discard;
-        ${
-          hollow
-            ? 'float f = smoothstep(0.55, 0.78, r) * (1.0 - smoothstep(0.86, 1.0, r));'
-            : 'float f = pow(1.0 - r, 2.2) + pow(1.0 - r, 10.0) * 0.8;'
-        }
+        float f = pow(1.0 - r, 2.2) + pow(1.0 - r, 10.0) * 0.8;
         gl_FragColor = vec4(vColor, f * vAlpha);
       }
     `,
