@@ -109,6 +109,13 @@ function launch(): void {
 }
 
 /**
+ * How far back a sphere of radius `r` sits to fill the frame, on the vertical field
+ * of view, which is the tighter of the two at any sane aspect. Every framing in the
+ * game is this one question asked about a different sphere.
+ */
+const standoff = (r: number, margin = 1.15): number => (r * margin) / Math.tan((stage.camera.fov * Math.PI) / 360)
+
+/**
  * Opening camera: behind our own fleet, looking down the axis the enemy is on. A
  * battle that opens on an arbitrary angle costs the player their first ten seconds
  * working out which lights are theirs.
@@ -133,7 +140,6 @@ function frameFleets(w: World): void {
   // midpoint is empty space at T+0: it puts both fleets at the edges of the frame
   // and makes the first thing the player sees a pair of specks.
   const axis = theirs.clone().sub(mine)
-  const span = Math.max(200, axis.length())
   rig.levelUp()
   // A short lead down the axis rather than the midpoint: it puts our fleet in the
   // lower third with the volume it has to cross opening out ahead of it, and it
@@ -141,7 +147,24 @@ function frameFleets(w: World): void {
   // wants to do. The enemy is usually beyond sensors at T+0 anyway, so framing to
   // include them buys a smaller picture of nothing.
   rig.target.copy(mine).addScaledVector(axis, 0.14)
-  rig.dist = span * 0.58
+  /*
+   * Then back off until every hull of ours is in the frame from that point, the lead
+   * included, because the lead is part of what has to fit: measured from the fleet's
+   * own centre instead, Deep Well's opening held the needles and left the lance wing
+   * off the bottom of the screen, a wing on the roster the player could not see.
+   *
+   * This replaces a distance taken from the gap between the fleets, which is a length
+   * that has nothing to do with how much room our own fleet needs. It put the ten
+   * needles of the tutorial in a hundred and thirty pixels of a sixteen hundred pixel
+   * frame, so the first thing a new commander saw was a smudge, while the Last Exam's
+   * thirty nine hulls in five wings ran to the edges from the same rule.
+   */
+  let r = 0
+  for (const ship of w.ships) {
+    if (ship.side !== 'blue' || !ship.alive) continue
+    r = Math.max(r, Math.hypot(ship.pos.x - rig.target.x, ship.pos.y - rig.target.y, ship.pos.z - rig.target.z))
+  }
+  rig.dist = standoff(r)
   rig.pitch = 0.3
   // Yaw until the camera sits behind us. The rig's horizontal basis is (z, x) when
   // up is world up, hence the argument order.
@@ -328,8 +351,7 @@ Object.assign(window, {
      */
     fit(at: Vector3, r: number, margin = 1.15) {
       rig.target.copy(at)
-      // Vertical field of view, which is the tighter of the two at any sane aspect.
-      rig.dist = (r * margin) / Math.tan((stage.camera.fov * Math.PI) / 360)
+      rig.dist = standoff(r, margin)
       rig.apply(stage.camera, 10)
     },
     /**
