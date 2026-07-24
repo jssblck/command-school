@@ -803,6 +803,6 @@ The four things that felt wrong in the first play session are checked as numbers
 were reported before the sim and the renderer were rebuilt around them. Clicking a hull selects
 the wing it flies in, a left drag turns the camera through 0.8 radians and moves it 0.000 units,
 and the order cursor lands 0.00 pixels from the mouse on both the flat plane and the vertical
-one shift resolves against. The two pans carry the camera in exactly opposite directions, which is
-right, since a drag moves the picture and a key moves the camera, and the only thing wrong was
-the line above claiming the two gestures did the same thing.
+one shift resolves against. The two pans carry the camera in exactly opposite directions, which
+is right, since a drag moves the picture and a key moves the camera, and the only thing wrong
+was the line above claiming the two gestures did the same thing.
