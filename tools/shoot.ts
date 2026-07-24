@@ -41,6 +41,14 @@ interface Shot {
   fit?: 'all' | 'pair'
 }
 
+/**
+ * A shot with neither of these is taken from wherever the game itself left the camera.
+ * The opening framing is a thing to photograph rather than a thing to replace: a fixture
+ * that poses its own deployment shot can never catch the game's own opening being wrong,
+ * and it also stands off to hold red's hulls, which under fog are not on screen at all.
+ */
+const poses = (shot: Shot): boolean => shot.dist !== undefined || shot.fit !== undefined
+
 const args = process.argv.slice(2)
 const missions = args[0] ? SCENARIOS.filter((s) => s.id === args[0]) : SCENARIOS
 const times = args.slice(1).map(Number)
@@ -56,7 +64,7 @@ const moments = (t: number[]): Shot[] =>
       // asked about the fight rather than about the deployment.
       t.map((at) => ({ name: `t${at}`, at, pitch: 0.26, dist: 200, focus: true }))
     : [
-        { name: 'deploy', at: 0.5, pitch: 0.42, fit: 'all' },
+        { name: 'deploy', at: 0.5 },
         { name: 'contact', at: 14, pitch: 0.32, dist: 460, focus: true },
         { name: 'melee', at: 34, pitch: 0.26, dist: 200, focus: true },
         // Close enough that hulls are geometry rather than points of light, which
@@ -99,9 +107,10 @@ async function capture(page: Page, mission: string, shot: Shot): Promise<void> {
   await page.waitForFunction('window.cs !== undefined')
 
   await page.evaluate(
-    ({ at, yaw, pitch, dist, focus, fit, room }) => {
+    ({ at, yaw, pitch, dist, focus, fit, room, pose }) => {
       const cs = (window as unknown as { cs: CsHandle }).cs
       if (at > 0) cs.advance(at)
+      if (!pose) return
       const c = cs.contact()
       cs.look({
         yaw: yaw ?? 0.6,
@@ -120,6 +129,7 @@ async function capture(page: Page, mission: string, shot: Shot): Promise<void> {
       focus: shot.focus,
       fit: shot.fit,
       room: CLOSE_ROOM,
+      pose: poses(shot),
     },
   )
 

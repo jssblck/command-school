@@ -18,8 +18,17 @@ const ui = document.querySelector<HTMLElement>('#ui')!
 
 const params = new URLSearchParams(location.search)
 const seed = Number(params.get('seed') ?? 2000)
-/** Set by the screenshot harness: no briefing, no fog, and blue flies itself. */
+/** Set by the screenshot harness: no briefing, and blue flies itself. */
 const auto = params.get('auto') === '1'
+/**
+ * Draw red's whole fleet instead of only what blue has seen. This used to be implied by
+ * `auto`, which meant every frame in the shot album was of a volume no player will ever
+ * be looking at: red's dispositions are most of what a commander does not know, and a
+ * fixture that photographs them cannot tell whether the fog reads. First Contact opened
+ * its shot with six of red's hulls plainly on screen beside an enemy strength bar reading
+ * nearly zero, which is the interface and the volume disagreeing about the same fact.
+ */
+const omniscient = params.get('see') === 'all'
 /**
  * Start the battle held, which is what the interface harnesses want. They drive the clock
  * through `advance`, and the loop also steps it off real frames, so anything they do costs
@@ -84,7 +93,7 @@ function enter(index: number): void {
     settle: 0,
     live: false,
   }
-  s.fleet.fog = !auto
+  s.fleet.fog = !omniscient
   stage.scene.add(s.terrain.group, s.fleet.group, s.fx.group, s.overlay.group)
   session = s
   carry = 0
