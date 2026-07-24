@@ -31,9 +31,10 @@ sensor fog are all there to make that delay expensive.
 | `f` `l` `g` | hold the selection centred, level the camera, or put the enemy's gate down |
 | space, `[` `]` | pause, and halve or double the clock |
 
-`wasd` carries the camera across the volume and a middle drag does the same in one
-gesture, a left drag turns it to look somewhere else without moving it, and the wheel
-zooms.
+`wasd` carries the camera across the volume. A middle drag grabs the picture and
+pulls it instead, so whatever was under the cursor stays under it, which is why
+dragging right takes the camera the opposite way from holding `d`. A left drag
+turns the camera to look somewhere else without moving it, and the wheel zooms.
 
 ## The volume
 
@@ -797,3 +798,11 @@ thousand points and 87 thousand line segments. The other seven missions run 54 t
 Hulls, tracers, sparks and annotations are all pooled and batched, so a hull count moves what is
 in the buffers rather than the number of calls, and what a slow machine would run short of is
 fill rate for the additive points and the bloom chain rather than anything geometric.
+
+The four things that felt wrong in the first play session are checked as numbers now, since they
+were reported before the sim and the renderer were rebuilt around them. Clicking a hull selects
+the wing it flies in, a left drag turns the camera through 0.8 radians and moves it 0.000 units,
+and the order cursor lands 0.00 pixels from the mouse on both the flat plane and the vertical one
+shift resolves against. The two pans carry the camera in exactly opposite directions, which is
+right, since a drag moves the picture and a key moves the camera, and the only thing wrong was
+the line above claiming the two gestures did the same thing.
