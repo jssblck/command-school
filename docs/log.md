@@ -1,9 +1,9 @@
 # Development log
 
 What each pass of playtesting found, in the order it was found. The "I" in it is
-Claude's, writing up its own playtesting between sessions, and the outside hand
-it keeps mentioning is the person who played the game. Which of those two found
-what is the result of the experiment: the harnesses caught a great deal,
+Claude's, writing up its own playtesting between sessions, and Jess is the person
+who actually sat down and played the game. Which of those two found what is the
+result of the experiment: the harnesses caught a great deal,
 including a mission that shipped impossible to win and a run of interface claims
 that were false, and the one thing they could not catch is that the game had no
 tactics in it, because a win rate reads the same whether a battle is decided by
@@ -512,12 +512,12 @@ what needs the cover. All eight cards still reach from their title to their begi
 every window height from 900 down to 420, which is the test that matters for a fixed panel:
 one line too many is a button off the bottom of the screen with nothing to click.
 
-## What the first outside hand found
+## What Jess found the first time
 
 Every measurement above was taken by the same hand that wrote the interface, and a harness
-written by that hand asks the questions the interface already answers. The first hand that was not
-mine got four complaints out of the first few minutes, and each one turned out to be a
-mechanism rather than a matter of taste.
+written by that hand asks the questions the interface already answers. Jess, who had not
+seen any of it before, got four complaints out of the first few minutes, and each one
+turned out to be a mechanism rather than a matter of taste.
 
 Clicking to select did nothing at all. The same button selects and orbits, so a press has to
 be read as one or the other, and the line was five pixels of travel: a hand that slid six
@@ -660,7 +660,7 @@ was the line above claiming the two gestures did the same thing.
 
 ## The dice came out of the gunnery
 
-The same outside hand came back with a harder complaint: ships sit where they are pointed,
+Jess came back with a harder complaint: ships sit where they are pointed,
 fights resolve themselves, and the first three missions fell without a meaningful order given.
 All of that was one fault wearing three coats. Gunnery was a to-hit formula, an accuracy
 number against an evasion weight, so nothing a hull did between volleys mattered: not its

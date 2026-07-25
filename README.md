@@ -11,8 +11,8 @@ said little else, and everything downstream of it is Claude's, the five hull
 classes, the eight missions, the ballistic gunnery, the interface, the harnesses
 that balanced it and the documents under `docs/`, built in Claude Code over two
 days. The only information that reached the work from outside is two rounds of
-complaints from a person who sat down and played it, and those two rounds cost
-more rework than everything the harnesses turned up put together.
+complaints from Jess, who sat down and played it, and those two rounds cost more
+rework than everything the harnesses turned up put together.
 
 It plays in a browser at <https://jssblck.github.io/command-school/>, and it runs
 locally the usual way:
