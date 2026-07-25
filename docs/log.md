@@ -1,16 +1,75 @@
 # Development log
 
-What each pass of playtesting found, in the order it was found. The "I" in it is
-Claude's, writing up its own playtesting between sessions, and Jess is the person
-who actually sat down and played the game. Which of those two found what is the
-result of the experiment: the harnesses caught a great deal,
-including a mission that shipped impossible to win and a run of interface claims
-that were false, and the one thing they could not catch is that the game had no
-tactics in it, because a win rate reads the same whether a battle is decided by
-geometry or by dice. That took somebody playing for five minutes and saying the
-fights resolve themselves, which is what the last section is about.
+The order things happened in, taken from the session transcripts and the commit
+timestamps rather than from memory. The "I" is Claude's, since Claude wrote the
+game and then wrote this account of writing it. Jess is the person who asked for
+it and played it, and where one of her messages lands is marked, because which of
+us found what is the result of the experiment.
 
-The numbers each pass was measured against are in [balance.md](balance.md).
+The harnesses below caught a great deal, including a mission that shipped
+impossible to win and a run of interface claims that were false. What they could
+not catch is that the game had no tactics in it, because a win rate reads the
+same whether a battle is decided by geometry or by dice. That took Jess playing
+for five minutes and saying the fights resolve themselves, which is what the
+second sitting is about. The numbers each pass was measured against are in
+[balance.md](balance.md).
+
+## The brief
+
+It opened as a conversation about the novel rather than as a specification: what
+Command School is, what Mazer runs Ender through on Eros, and the fact that the
+simulator was never a simulator. Then came one paragraph, which is the whole of
+the design direction this project has ever had:
+
+> i'm not sure exactly what i imagine it looked like, but i always vaguely felt
+> like it was a very abstracted 3D game space with a simple-seeming view that had
+> a ton of detail if you looked closer. not necessarily visual detail- more like,
+> compositional detail. the physics simulation was good, it was real time
+> commands, and so on.
+
+Under it was a five line shape: a 3D play space, probably three.js; real time
+tactical battles; highly abstracted combatants but varied ships, fleet makeup and
+obstacles like planets or gravity wells or moons or rings; light on models and
+heavy on particle effects, points of light or asteroids-style wireframes brought
+forward to now. And one instruction about process, which is the one that produced
+everything below: make sure to playtest it until it feels good to play and looks
+good.
+
+What the brief does not contain is a game. There are no hull classes in it, no
+comm delay, no missions, no objectives that are not annihilation, no interface,
+no fleet composition, and nothing at all about what decides a fight. Every one of
+those was chosen here, and most of them were chosen twice.
+
+## Twenty-three hours
+
+The brief arrived at 22:58. The next message from Jess came at 22:27 the
+following night, twenty-three and a half hours later, and asked whether it was
+ready to be played. Between those two messages sit 3,691 messages and no human
+input of any kind. The simulation, the renderer, the eight missions, seven
+harnesses and the first draft of this log were all decided and built inside that
+gap.
+
+Off the timestamps, roughly what was happening when, counted from the brief:
+
+- **1h30m**: tuning the particle layer in `src/render/fx.ts`, so the volume drew
+  something by then.
+- **3h**: a scratchpad probe asking whether the last mission contains a decision
+  or only one trick, which is the question `tools/exam.ts` still exists to
+  answer.
+- **5h**: order lines in the overlay, which is the interface starting.
+- **7h**: `tools/balance.ts`, the first harness.
+- **10h**: the device, its cascade, and the argument about when a battle is
+  allowed to be over.
+- **13h30m**: `tools/play.ts`, driving the real controls out of a headless
+  browser.
+- **16h30m**: gunnery and steering in `src/sim/step.ts`.
+- **18h**: the scout's sensor ring, read off screenshots.
+- **19h30m**: `tools/hands.ts`, which flies the missions off their own briefing
+  cards.
+- **23h**: re-running every harness and correcting the numbers this document had
+  got wrong about itself.
+
+The rest of this section is what those passes found, in the order they ran.
 
 ## What the arming panel was promising
 
@@ -36,232 +95,6 @@ wrong:
 - The comm channel froze 16 seconds into every battle, because the HUD tracked
   the log by array index and the log is a 40 line ring whose length stops
   changing.
-
-## Reading frames
-
-`tools/shoot.ts` and `tools/play.ts` drive the real game loop out of a headless
-browser and write `shots/`, so a visual or interface change can be compared
-against the frame before it at the same second of the same seed. Both need the
-dev server up.
-
-Reading those frames is what caught the balance of force bar. It was a flex item
-sizing itself against the whole row, label included, and then shrinking to fit, so
-a full fleet drew 143 pixels of a 132 pixel rule and every reading below that was
-wrong by its own amount. A Shoal frame with a wing of twelve needles wiped, eleven
-of twenty five points left, still showed a bar most of the way full. It is a grid
-column now, and the percentage means what it says.
-
-The soft wall came out of the same pass and took two goes. Every First Contact frame
-carried a faint dead straight line the full height of the viewport, at the same screen
-column eleven seconds apart, and nothing in the renderer draws a vertical. The wall is
-three great circles at the edge of the theatre, one per principal plane, and a circle
-seen edge-on projects to a line straight through the middle of the volume, which is the
-opposite of what an edge marker is for. Dimming each circle by how face-on it is removes
-that line and then loses the wall at the angle between the axes, where all three sit at
-58 percent: orthogonal planes conserve the ink between them, but split three ways it comes
-to 10 levels of contrast out of 765 a line, against 26 for a circle face-on. Neither
-number is readable by eye, which is why the probe samples the frame along each circle's
-own projected path. The fade runs on a square root now and the colour clears the bloom
-threshold, so the worst angle reads 79 and the edge of a volume that shoves a hull back
-at one and a half times its own thrust is findable from anywhere.
-
-Measuring what those mostly empty frames actually hold caught the follow key doing less
-than the legend claimed. Projecting every live hull every two seconds, the whole of the
-opening skirmish fits in a box 116 pixels across by T+4, and Deep Well never gets above
-four percent of the viewport at any point in the battle, because two fleets 500 apart
-converge into a melee 80 across and the opening camera is composed for the 500. `f` was a
-one-shot recentring, so a wing it centred sat 117 pixels back out two seconds later and
-stayed around a hundred for the rest of the fight. It holds a wing now, inside a pixel of
-the middle of the screen for as long as you leave it, and lets go when you pan, when you
-press it again, or when the wing is wiped, saying so in the channel when the camera goes
-quiet on its own. Distance stays yours: a camera that zooms itself during a fight takes
-away the comparison a player reads speed and range out of.
-
-Overwhelm's clock came down from 145 seconds to 90, because the mission is only a fight
-for about 45 of them. All thirty six of red's needles die between 39 and 47 seconds, and
-what is left is eight lances at speed thirty and four screens chasing a fleet that flies
-at fifty eight, so under the winning plan one seed killed nothing at all on either side
-between T+60 and T+145. The clock was never what decided whether that plan wins, since it
-is not wiped at any clock length out to 200 seconds. What the clock decides is how long the
-plans that plant themselves last, and those die at a median of 78 seconds standing still
-and 86 behind Anvil, so 90 separates the three plans 12, 1 and 5 where 145 separated them
-12, 1 and 1 and spent the difference on a procession. The generic commander still dies at
-a mean of 57 seconds, so the shorter clock did not hand it a mission it has never won. The
-header now also prints the seconds left instead of only the seconds spent, because a clock
-that counts up under an objective line naming the target asked the player to subtract at
-every glance, on the one mission where that difference is the score. The same measurement
-turned up that the winning fleet is pressed against the soft wall from T+20 onward, and that
-is left alone, since nothing can englobe you at the boundary and spending the whole volume
-to buy that is what the brief is teaching.
-
-Reading the eight briefs in campaign order turned up a rule the simulation does not have.
-The second mission's brief said nothing sees through a moon while the seventh mission's hint
-card said sensors read straight through a planet, and the card was right: an eye 400 units
-from a needle with a 130 radius planet exactly between them cannot shoot it and holds it on
-sensors the whole time. Rock is cover from guns and dust is what blinds you, which is why
-the eye class arrives with the debris belt in Shoal rather than with the moon two missions
-earlier. Nothing in play ever leaned on the false version, since a fleet spread across a
-volume always has some hull holding a clear line and no contact in either rock mission was
-blocked from all of them at once over 75 samples, so the brief is what changed rather than
-the sensor model.
-
-## Saying a route in clicks
-
-The Bay Doors was then flown by hand through the real click path, since the harness only
-proves the simulation allows the flanking plan and clicks are what prove a player can issue
-it. An order resolves where the cursor's ray meets a plane through the wing being ordered,
-horizontal by default and facing the camera under shift, so one click cannot leave its plane
-and the route has to be said in two orders. Which order they go in decides the mission.
-Flanking on the horizontal plane and then dropping under the ring closes both bays at T+72
-with nine of twenty three hulls left, four clicks in all, and the two waypoints land 17 and
-2 units from the points aimed at. Descending first is the natural reading of going under
-their guns, and it is a click that slides the fleet sideways along the start line making no
-progress toward the bays: a bay rolls out another needle every seven seconds, so that run
-reached the flank at T+57 with one hull left. The place it wants is also off the frame at
-the opening camera, at pixel -306,1036, so it cannot be clicked at all until the wheel comes
-back three notches. What changed off this was the legend, which taught the orders and the
-stances and left the camera out: drag to orbit, middle drag to pan, the wheel and the two
-speed keys were all bound and none of them were written down, and they are the first things
-a commander reaches for when the place they want is not on screen.
-
-## What the plot was claiming
-
-A frame from the last exam caught the roster narrating orders for wings that no longer
-exist. Four of the five rows are wiped by T+22 on that mission, and each was still reporting
-a manoeuvre: HOPPER read 0/16 and engaging drift. A wiped wing keeps its number and its
-name, because renumbering the roster under the player's fingers is how an order meant for
-the courier reaches the artillery instead, but the row says lost now.
-
-Rings with nothing inside them in that same frame turned out to be two separate faults. Most
-were ghosts, the mark for a contact the fleet remembers and can no longer see, which is a
-claim about where a hull was and must never read as a hull. The claim was false. A ghost is
-dropped when the hull died where the fleet could see it, and that test ran after the sensor
-sets were rebuilt, which is after dead hulls have been dropped from them, so it could never
-be true: every kill the player watched left a marker sitting on the wreck until it aged out.
-Sampled every simulated second over six runs of each mission, that put more rings on the plot
-than the honest ones on seven of the eight missions, First Contact drawing 1.7 wrecks against
-no real contacts at all and Overwhelm 8.8 against 6.5 with as many as 35 up at once. Deaths
-are settled against the previous pass now, before the rebuild. What survives is the case the
-marker is for: a hull that died after drifting out of contact stays on the plot, since nobody
-in the fleet knows it is gone.
-
-The second fault was an aegis field. A screen draws one shell around the squadron rather than
-one per hull, and the shell was centred on the sim's centroid, which averages over every live
-hull whether the viewer has detected it or not. With two of a screen's three hulls dark that
-pulls the shell toward the two nobody has contact on, which draws a hoop around empty space
-and quietly reports where they are. It happens on three to five per cent of the frames a
-screen is visible for, worst case 21 units, about a quarter of the field radius. The shell
-follows the hulls in view now.
-
-Looking for a third of the same kind turned up a candidate and the measurement said to leave
-it. A wing under an attack order steers by its target's true position with no sensor test, so
-in principle it can chase something the fleet has lost, which is the one place the plot is
-honest and the steering is not. In practice it is 0 to 7 percent of the attack orders in play
-and for your own wings it is 0.1 of a wing per frame at worst, because a squadron close enough
-to shoot is well inside its own sensors: the standoff a class keeps is a fraction of how far it
-can see. A pursuit rule that fires that rarely is a mechanism bought against nothing, and what
-it would actually reach is Shoal, the one mission whose dust makes losing contact routine and
-so the one mission it would quietly retune.
-
-The pressed Overwhelm frame stacks three large circles around one knot of hulls, and working
-out which was which took a probe rather than an eye, since all three are round and dim and two
-of them are blue. It enumerates every round mark the renderer would draw at that second with
-its world radius and its radius in pixels, and two of the marks turned out to be one circle. An
-aegis field is 78 units plus six tenths of the formation's spread, which comes to 88 through 114
-across every stance and hull count, and an aegis gun reaches a flat 100, so selecting a screen
-drew where protection ends and where the guns stop over each other in the same dim blue, 4
-pixels apart in that frame. A screen gets no reach circle now. The field is the mark worth
-keeping, since it is the reason the class is in the fleet, while the gun is a two point pinprick
-nobody positions a screen to use. Swept over the campaign with the whole fleet selected, no
-other pair of marks lands within a dozen pixels of each other in both centre and radius, and
-the sweep does report this pair when the rule is taken back out, which is how I know it is
-looking. The three marks left in that frame read as three different things: a planet's geodesic
-shell, our own field, and theirs in red.
-
-The comm channel in the same frame had the identical fault in colour rather than in geometry.
-Nine lines are on screen, the oldest five at half and a quarter opacity, and attrition is
-flushed on a 1.5 second timer, so a brawl posts a loss line every second and a half and
-crowds out everything else: arming the courier on the Last Exam at T+26 put HAMILTON armed on
-a channel with four loss lines above it and four below, the whole visible nine, every one of
-them the same orange. Every alert the game posts is about the device, without exception, from
-armed and out of reach by N through a courier lost with the charge still aboard to a world
-unmade, so the tone is called device now and takes the violet of the arming panel and the
-cascade preview, which is a hue the interface has already taught. Hue is also the right axis
-for it, since eight lines of one colour is precisely what destroys a difference in brightness.
-
-## An order that never left the keyboard
-
-The selection ring sent me looking at the wrong mark and turned up a better one on the way. A
-ring is drawn at the radius the stance and the hull count say the formation occupies, which
-makes it a claim about where the hulls are computed from what the wing was told rather than
-from where it went, so I sampled each of our wings once a simulated second and counted the
-hulls sitting outside their own ring. It encloses the whole wing on 96 to 100 per cent of
-frames on six of the eight missions, and the two it misses are the two with a well in them:
-Deep Well stretches the entire formation rather than dropping one straggler, the hull halfway
-down the pack sitting at 0.78 of the drawn radius against 0.38 to 0.48 everywhere else. That is
-the mark under-claiming in the mission whose whole lesson is that gravity pulls a formation
-apart, which is the harmless direction, since every hull is drawn as its own glyph whatever the
-ring does. The formula stays.
-
-What the sweep turned up instead is that the stance was not travelling. `sq.stance = stance`
-was assigned straight into the world by the key handler, while move, hold, attack and the
-device all wait out the comm delay in `pending`, so the one rule the game teaches on the first
-mission had a single exception and it was the one a player's fingers find. The channel was
-already calling it an order, posting HOPPER tight in the blue of a signal sent, and no
-acknowledgement ever came back because there was nothing left to acknowledge. Delaying it had
-to be safe before it could be right, so I held every stance change for the comm lag from
-outside the sim over 14 seeds a mission: the campaign moved both ways and by little, Under the
-Aegis 79 to 100 per cent, Shoal 86 down to 79, The Bay Doors 0 up to 14, which is a wash and
-says tightening under fire was never worth hulls to begin with. A signal is now a whole
-instruction, a task and the shape to carry it out in, which is how the commander had been
-writing it all along: all eight of its stance assignments sat on the line after an `issueOrder`
-to the same wing, and each became an argument to that call. The roster prints the shape inside
-the ellipsis rather than ahead of it, because a mark in front reads as a wing already flying
-what it has only just been asked for. Saying a second thing while the first is still in the
-channel holds the whole instruction back to the later arrival, so talking twice costs time and
-pressing tight before clicking a destination lands as one order instead of throwing the shape
-away. What the signal carries is a copy of that order rather than the order itself, which the
-first version got wrong in a way worth keeping a note of: the lift that pushes a destination
-clear of a planet scales with the formation, so sending the live object let a wider stance edit
-the order the wing was flying at that moment, and a wing holding station 52 units above a skin
-slid 34 units outward on the keypress with nothing yet delivered. Nothing changes a wing from
-the keyboard any more without crossing the channel: the
-assignment in `resolveOrders` is the only stance write left in the project, the two scripted
-harnesses had to stop cheating with it as well, and the Last Exam still takes every one of its
-eight seeds by hand while the sweep's four plans win at 100, 67, 100 and 83 per cent over a
-duel table that still reads needles over lances, lances over keels, keels over needles.
-
-Writing Deep Well's plan turned up a larger one. The mission's lesson was a red line
-that warned when a move order ended in rock, and no such run exists: `liftClear`
-pushes a destination out of any solid and `avoidBodies` steers hulls around what they
-close on, both deliberately, since under a second of comm lag an accidental click
-would otherwise kill a wing. A sweep over 63 geometries built to fly straight into a
-130 radius planet, in three classes and three stances, never fired the warning once:
-the nearest any hull came to the skin was 51 units, and gravity moved a capital's path
-by one unit in a hundred. The brief promised a death the simulation declines to deal,
-and the whole render path for the warning was unreachable code.
-
-The fix was to forecast what the rock does do. A move order now measures how far the
-run departs from the straight line it describes, and draws the curve when that gap
-passes 25 units: open volume reads 4 at worst and a planet in the lane reads 100 and
-up, so the second line appears exactly when the order and the run disagree. It costs
-a needle wing three seconds and a keel wing nine, and those seconds are spent in the
-open in front of artillery, which is what the 1-of-12 straight run dies of. One number
-replaced the crash flag, the brief now says what the volume actually does, and the
-mission plays the same as it always did.
-
-## What a frame costs
-
-Neither harness looks at frame time, so a probe of its own measures it. Under a software
-rasteriser the whole campaign presents at one rate, 104ms a frame on the opening two
-flights and 110ms on the Last Exam with 122 hulls up, so the cost is fixed in the post
-pass rather than paid per hull. The simulation is where hull count shows, and it is
-nowhere near mattering: a step costs 39us at 17 hulls and 107us at 124, six tenths of one
-percent of a 60fps frame for physics, steering, sensors and gunnery. The outliers are all
-the collector, four to ten pauses of 8 to 26ms in a battle, and replaying the same seed
-moves them to different battle times, which is how you know they are not the step. A
-dropped frame a few times a minute, under a comm delay of a second, is not something a
-commander can feel.
 
 ## Buying the clock back
 
@@ -512,12 +345,250 @@ what needs the cover. All eight cards still reach from their title to their begi
 every window height from 900 down to 420, which is the test that matters for a fixed panel:
 one line too many is a button off the bottom of the screen with nothing to click.
 
+## Reading frames
+
+`tools/shoot.ts` and `tools/play.ts` drive the real game loop out of a headless
+browser and write `shots/`, so a visual or interface change can be compared
+against the frame before it at the same second of the same seed. Both need the
+dev server up.
+
+Reading those frames is what caught the balance of force bar. It was a flex item
+sizing itself against the whole row, label included, and then shrinking to fit, so
+a full fleet drew 143 pixels of a 132 pixel rule and every reading below that was
+wrong by its own amount. A Shoal frame with a wing of twelve needles wiped, eleven
+of twenty five points left, still showed a bar most of the way full. It is a grid
+column now, and the percentage means what it says.
+
+The soft wall came out of the same pass and took two goes. Every First Contact frame
+carried a faint dead straight line the full height of the viewport, at the same screen
+column eleven seconds apart, and nothing in the renderer draws a vertical. The wall is
+three great circles at the edge of the theatre, one per principal plane, and a circle
+seen edge-on projects to a line straight through the middle of the volume, which is the
+opposite of what an edge marker is for. Dimming each circle by how face-on it is removes
+that line and then loses the wall at the angle between the axes, where all three sit at
+58 percent: orthogonal planes conserve the ink between them, but split three ways it comes
+to 10 levels of contrast out of 765 a line, against 26 for a circle face-on. Neither
+number is readable by eye, which is why the probe samples the frame along each circle's
+own projected path. The fade runs on a square root now and the colour clears the bloom
+threshold, so the worst angle reads 79 and the edge of a volume that shoves a hull back
+at one and a half times its own thrust is findable from anywhere.
+
+Measuring what those mostly empty frames actually hold caught the follow key doing less
+than the legend claimed. Projecting every live hull every two seconds, the whole of the
+opening skirmish fits in a box 116 pixels across by T+4, and Deep Well never gets above
+four percent of the viewport at any point in the battle, because two fleets 500 apart
+converge into a melee 80 across and the opening camera is composed for the 500. `f` was a
+one-shot recentring, so a wing it centred sat 117 pixels back out two seconds later and
+stayed around a hundred for the rest of the fight. It holds a wing now, inside a pixel of
+the middle of the screen for as long as you leave it, and lets go when you pan, when you
+press it again, or when the wing is wiped, saying so in the channel when the camera goes
+quiet on its own. Distance stays yours: a camera that zooms itself during a fight takes
+away the comparison a player reads speed and range out of.
+
+Overwhelm's clock came down from 145 seconds to 90, because the mission is only a fight
+for about 45 of them. All thirty six of red's needles die between 39 and 47 seconds, and
+what is left is eight lances at speed thirty and four screens chasing a fleet that flies
+at fifty eight, so under the winning plan one seed killed nothing at all on either side
+between T+60 and T+145. The clock was never what decided whether that plan wins, since it
+is not wiped at any clock length out to 200 seconds. What the clock decides is how long the
+plans that plant themselves last, and those die at a median of 78 seconds standing still
+and 86 behind Anvil, so 90 separates the three plans 12, 1 and 5 where 145 separated them
+12, 1 and 1 and spent the difference on a procession. The generic commander still dies at
+a mean of 57 seconds, so the shorter clock did not hand it a mission it has never won. The
+header now also prints the seconds left instead of only the seconds spent, because a clock
+that counts up under an objective line naming the target asked the player to subtract at
+every glance, on the one mission where that difference is the score. The same measurement
+turned up that the winning fleet is pressed against the soft wall from T+20 onward, and that
+is left alone, since nothing can englobe you at the boundary and spending the whole volume
+to buy that is what the brief is teaching.
+
+Reading the eight briefs in campaign order turned up a rule the simulation does not have.
+The second mission's brief said nothing sees through a moon while the seventh mission's hint
+card said sensors read straight through a planet, and the card was right: an eye 400 units
+from a needle with a 130 radius planet exactly between them cannot shoot it and holds it on
+sensors the whole time. Rock is cover from guns and dust is what blinds you, which is why
+the eye class arrives with the debris belt in Shoal rather than with the moon two missions
+earlier. Nothing in play ever leaned on the false version, since a fleet spread across a
+volume always has some hull holding a clear line and no contact in either rock mission was
+blocked from all of them at once over 75 samples, so the brief is what changed rather than
+the sensor model.
+
+## Saying a route in clicks
+
+The Bay Doors was then flown by hand through the real click path, since the harness only
+proves the simulation allows the flanking plan and clicks are what prove a player can issue
+it. An order resolves where the cursor's ray meets a plane through the wing being ordered,
+horizontal by default and facing the camera under shift, so one click cannot leave its plane
+and the route has to be said in two orders. Which order they go in decides the mission.
+Flanking on the horizontal plane and then dropping under the ring closes both bays at T+72
+with nine of twenty three hulls left, four clicks in all, and the two waypoints land 17 and
+2 units from the points aimed at. Descending first is the natural reading of going under
+their guns, and it is a click that slides the fleet sideways along the start line making no
+progress toward the bays: a bay rolls out another needle every seven seconds, so that run
+reached the flank at T+57 with one hull left. The place it wants is also off the frame at
+the opening camera, at pixel -306,1036, so it cannot be clicked at all until the wheel comes
+back three notches. What changed off this was the legend, which taught the orders and the
+stances and left the camera out: drag to orbit, middle drag to pan, the wheel and the two
+speed keys were all bound and none of them were written down, and they are the first things
+a commander reaches for when the place they want is not on screen.
+
+## What the plot was claiming
+
+A frame from the last exam caught the roster narrating orders for wings that no longer
+exist. Four of the five rows are wiped by T+22 on that mission, and each was still reporting
+a manoeuvre: HOPPER read 0/16 and engaging drift. A wiped wing keeps its number and its
+name, because renumbering the roster under the player's fingers is how an order meant for
+the courier reaches the artillery instead, but the row says lost now.
+
+Rings with nothing inside them in that same frame turned out to be two separate faults. Most
+were ghosts, the mark for a contact the fleet remembers and can no longer see, which is a
+claim about where a hull was and must never read as a hull. The claim was false. A ghost is
+dropped when the hull died where the fleet could see it, and that test ran after the sensor
+sets were rebuilt, which is after dead hulls have been dropped from them, so it could never
+be true: every kill the player watched left a marker sitting on the wreck until it aged out.
+Sampled every simulated second over six runs of each mission, that put more rings on the plot
+than the honest ones on seven of the eight missions, First Contact drawing 1.7 wrecks against
+no real contacts at all and Overwhelm 8.8 against 6.5 with as many as 35 up at once. Deaths
+are settled against the previous pass now, before the rebuild. What survives is the case the
+marker is for: a hull that died after drifting out of contact stays on the plot, since nobody
+in the fleet knows it is gone.
+
+The second fault was an aegis field. A screen draws one shell around the squadron rather than
+one per hull, and the shell was centred on the sim's centroid, which averages over every live
+hull whether the viewer has detected it or not. With two of a screen's three hulls dark that
+pulls the shell toward the two nobody has contact on, which draws a hoop around empty space
+and quietly reports where they are. It happens on three to five per cent of the frames a
+screen is visible for, worst case 21 units, about a quarter of the field radius. The shell
+follows the hulls in view now.
+
+Looking for a third of the same kind turned up a candidate and the measurement said to leave
+it. A wing under an attack order steers by its target's true position with no sensor test, so
+in principle it can chase something the fleet has lost, which is the one place the plot is
+honest and the steering is not. In practice it is 0 to 7 percent of the attack orders in play
+and for your own wings it is 0.1 of a wing per frame at worst, because a squadron close enough
+to shoot is well inside its own sensors: the standoff a class keeps is a fraction of how far it
+can see. A pursuit rule that fires that rarely is a mechanism bought against nothing, and what
+it would actually reach is Shoal, the one mission whose dust makes losing contact routine and
+so the one mission it would quietly retune.
+
+The pressed Overwhelm frame stacks three large circles around one knot of hulls, and working
+out which was which took a probe rather than an eye, since all three are round and dim and two
+of them are blue. It enumerates every round mark the renderer would draw at that second with
+its world radius and its radius in pixels, and two of the marks turned out to be one circle. An
+aegis field is 78 units plus six tenths of the formation's spread, which comes to 88 through 114
+across every stance and hull count, and an aegis gun reaches a flat 100, so selecting a screen
+drew where protection ends and where the guns stop over each other in the same dim blue, 4
+pixels apart in that frame. A screen gets no reach circle now. The field is the mark worth
+keeping, since it is the reason the class is in the fleet, while the gun is a two point pinprick
+nobody positions a screen to use. Swept over the campaign with the whole fleet selected, no
+other pair of marks lands within a dozen pixels of each other in both centre and radius, and
+the sweep does report this pair when the rule is taken back out, which is how I know it is
+looking. The three marks left in that frame read as three different things: a planet's geodesic
+shell, our own field, and theirs in red.
+
+The comm channel in the same frame had the identical fault in colour rather than in geometry.
+Nine lines are on screen, the oldest five at half and a quarter opacity, and attrition is
+flushed on a 1.5 second timer, so a brawl posts a loss line every second and a half and
+crowds out everything else: arming the courier on the Last Exam at T+26 put HAMILTON armed on
+a channel with four loss lines above it and four below, the whole visible nine, every one of
+them the same orange. Every alert the game posts is about the device, without exception, from
+armed and out of reach by N through a courier lost with the charge still aboard to a world
+unmade, so the tone is called device now and takes the violet of the arming panel and the
+cascade preview, which is a hue the interface has already taught. Hue is also the right axis
+for it, since eight lines of one colour is precisely what destroys a difference in brightness.
+
+## An order that never left the keyboard
+
+The selection ring sent me looking at the wrong mark and turned up a better one on the way. A
+ring is drawn at the radius the stance and the hull count say the formation occupies, which
+makes it a claim about where the hulls are computed from what the wing was told rather than
+from where it went, so I sampled each of our wings once a simulated second and counted the
+hulls sitting outside their own ring. It encloses the whole wing on 96 to 100 per cent of
+frames on six of the eight missions, and the two it misses are the two with a well in them:
+Deep Well stretches the entire formation rather than dropping one straggler, the hull halfway
+down the pack sitting at 0.78 of the drawn radius against 0.38 to 0.48 everywhere else. That is
+the mark under-claiming in the mission whose whole lesson is that gravity pulls a formation
+apart, which is the harmless direction, since every hull is drawn as its own glyph whatever the
+ring does. The formula stays.
+
+What the sweep turned up instead is that the stance was not travelling. `sq.stance = stance`
+was assigned straight into the world by the key handler, while move, hold, attack and the
+device all wait out the comm delay in `pending`, so the one rule the game teaches on the first
+mission had a single exception and it was the one a player's fingers find. The channel was
+already calling it an order, posting HOPPER tight in the blue of a signal sent, and no
+acknowledgement ever came back because there was nothing left to acknowledge. Delaying it had
+to be safe before it could be right, so I held every stance change for the comm lag from
+outside the sim over 14 seeds a mission: the campaign moved both ways and by little, Under the
+Aegis 79 to 100 per cent, Shoal 86 down to 79, The Bay Doors 0 up to 14, which is a wash and
+says tightening under fire was never worth hulls to begin with. A signal is now a whole
+instruction, a task and the shape to carry it out in, which is how the commander had been
+writing it all along: all eight of its stance assignments sat on the line after an `issueOrder`
+to the same wing, and each became an argument to that call. The roster prints the shape inside
+the ellipsis rather than ahead of it, because a mark in front reads as a wing already flying
+what it has only just been asked for. Saying a second thing while the first is still in the
+channel holds the whole instruction back to the later arrival, so talking twice costs time and
+pressing tight before clicking a destination lands as one order instead of throwing the shape
+away. What the signal carries is a copy of that order rather than the order itself, which the
+first version got wrong in a way worth keeping a note of: the lift that pushes a destination
+clear of a planet scales with the formation, so sending the live object let a wider stance edit
+the order the wing was flying at that moment, and a wing holding station 52 units above a skin
+slid 34 units outward on the keypress with nothing yet delivered. Nothing changes a wing from
+the keyboard any more without crossing the channel: the
+assignment in `resolveOrders` is the only stance write left in the project, the two scripted
+harnesses had to stop cheating with it as well, and the Last Exam still takes every one of its
+eight seeds by hand while the sweep's four plans win at 100, 67, 100 and 83 per cent over a
+duel table that still reads needles over lances, lances over keels, keels over needles.
+
+Writing Deep Well's plan turned up a larger one. The mission's lesson was a red line
+that warned when a move order ended in rock, and no such run exists: `liftClear`
+pushes a destination out of any solid and `avoidBodies` steers hulls around what they
+close on, both deliberately, since under a second of comm lag an accidental click
+would otherwise kill a wing. A sweep over 63 geometries built to fly straight into a
+130 radius planet, in three classes and three stances, never fired the warning once:
+the nearest any hull came to the skin was 51 units, and gravity moved a capital's path
+by one unit in a hundred. The brief promised a death the simulation declines to deal,
+and the whole render path for the warning was unreachable code.
+
+The fix was to forecast what the rock does do. A move order now measures how far the
+run departs from the straight line it describes, and draws the curve when that gap
+passes 25 units: open volume reads 4 at worst and a planet in the lane reads 100 and
+up, so the second line appears exactly when the order and the run disagree. It costs
+a needle wing three seconds and a keel wing nine, and those seconds are spent in the
+open in front of artillery, which is what the 1-of-12 straight run dies of. One number
+replaced the crash flag, the brief now says what the volume actually does, and the
+mission plays the same as it always did.
+
+## The handoff
+
+At twenty-three and a half hours the question finally came, and it was whether
+the thing was ready to hand over and be played. The answer was yes, with one
+reservation that is worth keeping because it turned out to name the exact hole
+the next two sittings fell into:
+
+> What I can't test is feel, which is the part you asked for and the part a
+> harness structurally cannot answer. My hands click at three actions a second on
+> a held clock; they never get flustered, never lose track of which wing is
+> which, and never look at the plot and fail to understand it.
+
+The repository was initialised on the next message and the first commit landed a
+minute later, 39 files and 12,578 lines. Nine minutes after that, the first
+complaint arrived.
+
 ## What Jess found the first time
 
 Every measurement above was taken by the same hand that wrote the interface, and a harness
-written by that hand asks the questions the interface already answers. Jess, who had not
-seen any of it before, got four complaints out of the first few minutes, and each one
-turned out to be a mechanism rather than a matter of taste.
+written by that hand asks the questions the interface already answers. Four minutes of
+somebody else's hands produced this:
+
+> 1. i can't click to select units in the scene
+> 2. the camera rotation feels awkward, like the rotation point is in the scene rather than
+>    at the camera
+> 3. middle mouse for panning is awkward and i think reversed from what i'd expect; ideally
+>    we can use wasd to pan
+> 4. once a unit is selected, the reticule for where to move it isn't actually centered on
+>    the mouse
+
+Each one turned out to be a mechanism rather than a matter of taste.
 
 Clicking to select did nothing at all. The same button selects and orbits, so a press has to
 be read as one or the other, and the line was five pixels of travel: a hand that slid six
@@ -658,11 +729,41 @@ one shift resolves against. The two pans carry the camera in exactly opposite di
 is right, since a drag moves the picture and a key moves the camera, and the only thing wrong
 was the line above claiming the two gestures did the same thing.
 
-## The dice came out of the gunnery
+## What a frame costs
 
-Jess came back with a harder complaint: ships sit where they are pointed,
-fights resolve themselves, and the first three missions fell without a meaningful order given.
-All of that was one fault wearing three coats. Gunnery was a to-hit formula, an accuracy
+Neither harness looks at frame time, so a probe of its own measures it. Under a software
+rasteriser the whole campaign presents at one rate, 104ms a frame on the opening two
+flights and 110ms on the Last Exam with 122 hulls up, so the cost is fixed in the post
+pass rather than paid per hull. The simulation is where hull count shows, and it is
+nowhere near mattering: a step costs 39us at 17 hulls and 107us at 124, six tenths of one
+percent of a 60fps frame for physics, steering, sensors and gunnery. The outliers are all
+the collector, four to ten pauses of 8 to 26ms in a battle, and replaying the same seed
+moves them to different battle times, which is how you know they are not the step. A
+dropped frame a few times a minute, under a comm delay of a second, is not something a
+commander can feel.
+
+## The second sitting
+
+Jess came back the following afternoon, having played it properly, with four
+sentences that cost more than everything above put together:
+
+> the much larger issue: ship movement and combat feels awkward and very static.
+> i'm not sure how to address this part, which is a larger underlying problem
+> with the game. the ships don't rotate to thrust in different directions, they
+> sort of just sit there and don't do much, and the fights are very mechanical -
+> there's no real way to use tactics to win the fights. it also feels difficult
+> to lose; i don't really do much of anything and have beaten the first three
+> missions with no real ability to control the ships much less direct them.
+
+Every harness in the project had been reporting healthy numbers while that was
+true. What follows is the rebuild that came out of it, over three and a half
+hours.
+
+### The dice came out of the gunnery
+
+Ships sitting where they are pointed, fights resolving themselves, and three missions falling
+without a meaningful order given are one fault wearing three coats. Gunnery was a to-hit
+formula, an accuracy
 number against an evasion weight, so nothing a hull did between volleys mattered: not its
 vector, not its facing, not whether it was crossing or charging. Movement was decoupled from
 facing because a gun that rolls dice gives geometry nothing to pay for. And a battle with no
@@ -758,3 +859,19 @@ garrison demands: when nothing is drawn and nothing is remembered, the fleet wal
 corridor it was invaded from, a leg at a time so the needles never cross an unseen
 battery's envelope alone, because a garrison under fog is an enemy that standing still
 will never show you.
+
+## Where it stands
+
+The third sitting added nothing to the game. It re-ran every harness against the
+finished build, which is how two claims in these documents turned out to have
+gone stale under the gunnery rebuild: an eye that saw two and a half times as far
+as anything else in the fleet sees 1.7 times as far now that a lance's sensor
+reaches 275, and the by hand campaign had been reported as 33 of 35 over five
+seeds when the current pass takes 21 of 21 over three. One briefing card was
+still telling the player to press D to arm the device, which has been E since
+`wasd` took over the pan, on the one mission that cannot be won without it.
+
+The rest of that pass was packaging: the game is a static build with nothing
+behind it, so it deploys to Pages on every push, and this log moved out of the
+README, which had grown to 981 lines of changelog in front of anybody who only
+wanted to know what the game was.

@@ -10,7 +10,10 @@ prompting is kept to a minimum. The prompt asked for something in that spirit an
 said little else, and everything downstream of it is Claude's, the five hull
 classes, the eight missions, the ballistic gunnery, the interface, the harnesses
 that balanced it and the documents under `docs/`, built in Claude Code over two
-days. The only information that reached the work from outside is two rounds of
+days. The first twenty-three and a half hours of that ran without steering:
+between the brief and the next human message sit 3,691 messages and no input,
+and by the end of them the campaign was built, balanced and written up. The only
+information that reached the work from outside is two rounds of
 complaints from Jess, who sat down and played it, and those two rounds cost more
 rework than everything the harnesses turned up put together.
 
