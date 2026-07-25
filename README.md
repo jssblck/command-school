@@ -1,8 +1,19 @@
 # Command School
 
-A real time fleet game in the spirit of the battle simulator from *Ender's Game*.
-You command a volume of space from outside it, in wireframes and points of light.
-You never touch a hull; you talk to squadron leaders, and they fly.
+A real time fleet game in the spirit of the simulator battles Ender fights at
+Command School. You command a volume of space from outside it, in wireframes and
+points of light. You never touch a hull; you talk to squadron leaders, and they
+fly.
+
+It is also an experiment, which is what most of this document is about: how much
+of a game Claude can design and build when the prompting is kept to a minimum.
+The prompt asked for something in that spirit and said little else, and
+everything downstream of it is Claude's, the five hull classes, the eight
+missions, the ballistic gunnery, the interface, the harnesses that balanced it
+and the write up below, built in Claude Code over two days. The only information
+that reached the work from outside is two rounds of complaints from a person who
+sat down and played it, and those two rounds cost more rework than everything the
+harnesses turned up put together.
 
 ```bash
 npm install && npm run dev
@@ -25,8 +36,8 @@ sensor fog are all there to make that delay expensive.
 | right click | move to empty space, or attack the contact under the cursor |
 | shift while ordering | set the order's altitude instead of its position |
 | digits `1` to `9`, `tab`, `q` | select by roster number, cycle, or select everything |
-| `z` `x` `c` | stance: tight concentrates fire, open advances, wide spreads a wall |
-| `h` | hold station here |
+| `z` `x` `c` | stance: tight packs the wing under one field, open splits the difference, wide clears every barrel |
+| `h` | hold station at the cursor's point, or where the wing stands if the cursor is on a contact |
 | `e` then click | arm the device and pick a target; right click stands it down |
 | `f` `l` `g` | hold the selection centred, level the camera, or put the enemy's gate down |
 | space, `[` `]` | pause, and halve or double the clock |
@@ -45,8 +56,22 @@ narrow cone, so the shape a squadron holds decides how many of them can speak at
 once; aegis hulls project a field that bites a fixed amount out of every bolt
 crossing it, which makes them the answer to massed small arms and no answer at
 all to artillery; keels are capitals that replace their own losses out of a
-launch bay; eyes are unarmed and see two and a half times as far as anything else
-you own.
+launch bay; eyes are unarmed and see nearly twice as far as anything else in the
+fleet and close to three times as far as a needle.
+
+Every bolt is a physical object. It leaves a muzzle, flies at its own speed, bends
+in a well, and hits the first hull that crosses its path, whichever side that hull
+is on; there is no to-hit roll anywhere in the game. What separates the guns is how
+fast a mount can track. A needle crossing close sweeps a lance's sky faster than
+the whole hull can turn, so the shells land where the needle was, while the same
+needle charging straight in has no angular rate at all and eats a shell that
+one-shots it. Thrust is coupled to facing the same way: a hull burns sideways at
+about a third of its thrust, so a wing told to move somewhere turns its nose and
+runs at full burn with its guns silent, while a wing on an attack or a hold keeps
+its guns free and pays for the manoeuvring in thrust. That is the choice the game
+keeps asking: run fast and silent, or fight and crawl. It also means the side
+crossing open volume is the side that pays, so the back half of the campaign keeps
+garrisons, wings that hold their line and make you come to them.
 
 Planets and moons block fire but not sensors, so a world is cover from guns rather
 than a way to disappear, and a well swallows any bolt that ploughs into it. Their
@@ -80,9 +105,32 @@ thousands of battles in seconds. `src/render/` and `src/ui/` read simulation
 state and never write it. Nothing in the scene is lit; every material is emissive
 and additive, so the bloom pass is doing the work a lighting rig normally would.
 
+`tools/` is everything that plays the game without a person. Three of them have
+npm scripts because they run on every change: `balance` sweeps the campaign and
+the class tables against the simulation directly, while `byhand` and `hands` fly
+the missions through the real interface and so need `npm run dev` up and Edge
+installed. The rest run under `npx tsx tools/<name>.ts`: `passive` plays the
+campaign with blue never saying anything, `probe` and `debug` put a single duel
+under a microscope a few seconds at a time, `exam` compares three plans for the
+last mission, `layout` checks every deployment for hulls spawned into rock, and
+`shoot` and `play` photograph the volume and the interface. Anything driving the
+browser reads the live page, so editing `src/` mid-run reloads it underneath the
+harness and the run dies on a missing `window.cs`.
+
 `npm run check` typechecks the whole project, harnesses included.
 
 ## Playtesting
+
+Everything from here down is the log rather than the manual, and it is the part
+worth reading if you are here for the experiment instead of for the game. The "I"
+in it is Claude's, writing up its own playtesting between sessions, and the
+outside hand it keeps mentioning is the person who played it. Which of those two
+found what is the result. The harnesses caught a great deal, including a mission
+that shipped impossible to win and a run of interface claims that were false, and
+the one thing they could not catch is that the game had no tactics in it, because
+a win rate reads the same whether a battle is decided by geometry or by dice.
+That took somebody playing for five minutes and saying the fights resolve
+themselves, which is what the last section is about.
 
 The whole tuning surface is one command. It runs the campaign sweep with both
 sides on AI, the equal points class duels, the screen value comparison, and
@@ -93,27 +141,32 @@ through.
 npm run balance
 ```
 
-That commander wins the first two missions every time, then falls off a cliff:
-8 percent on Deep Well, 75 on Shoal, 75 under the Aegis, and none at all on the
-last three. It is a weak measure of whether a mission is fair, because it plays
+That commander takes the first two missions every time, holds 75 to 100 percent
+through the middle of the campaign, drops to 58 on The Bay Doors, and loses the
+last two nearly outright: none of twelve on Overwhelm and one in twelve on the
+Last Exam. It is a weak measure of whether a mission is fair, because it plays
 every mission the same way, by pointing squadrons at whatever is nearest and
-trading hulls. Four missions cannot be won that way, and the scripted plans are
-what tells them apart from missions that are simply impossible. Go over the top of
-the planet and mass on their artillery and Deep Well falls in twelve runs of 12. Give
-ground from your own centre of mass and turn on the pursuit and Overwhelm holds all
-90 seconds in twelve runs of twelve with 59 percent of the fleet alive. Swing wide
-and come at the bays from behind their artillery and The Bay Doors falls in 8 runs
-of 12. Send the fleet in, wait eighteen seconds, then walk the courier up behind
-it and the Last Exam falls in 20 runs of 24, usually with one or two hulls left.
+trading hulls, and the scripted plans are what tell a mission that resists that
+apart from a mission that is simply impossible. Meet their sortie on your own
+line, then go over the top of the planet and mass on their artillery, and Deep
+Well falls in twelve runs of twelve with 68 percent of the fleet left. Give
+ground on posts from your own centre of mass and turn the guns on the pursuit and
+Overwhelm holds all 90 seconds in twelve runs of twelve with 58 percent alive.
+Swing wide and come at the bays from behind their artillery and The Bay Doors
+falls in eleven runs of twelve, closing 23 of the 24 bays. Send the fleet in,
+hold the courier back while the escort crosses, then walk it up behind them and
+the Last Exam falls in 20 runs of 24.
 
-Deep Well is the cheapest illustration of what those plans are for, because 8
-percent could have meant either thing. Route is the entire mission: straight in wins
-3 runs of 12, and 0 if it masses on their guns while crossing, while every way around
-the rock wins 11 or 12, over the top, under, or wide of the well. Naming their
-artillery is free once the route is right and costs three runs without it, since from
-the start line it is an order to march at them. So the mission is fair and the low
-generic rate is the mission working, since pointing squadrons at whatever is nearest
-walks them across the front of five lances.
+Deep Well used to be the cheapest illustration of what those plans are for, when
+the generic rate read 8 percent and the number alone could not say whether the
+mission was working or impossible. Under ballistic gunnery it reads 75, and the
+rise is the new model's own arithmetic: the side crossing open volume is the side
+that pays, red's swarm now does the crossing while its artillery garrisons, and a
+commander too dull to fly a route still gets to shoot at hulls arriving nose-on.
+What the plan buys over that is deliberateness at both ends, breaking the sortie
+on a standing line before flying anywhere and only then routing around the rock
+onto the guns, and it is worth 25 points of win rate and more than twice the
+fleet kept at the bell, 68 percent against 29.
 
 The Bay Doors is the case for keeping the plans, because it was in fact impossible
 and shipped that way. Four plans over twelve seeds each all read 0 percent, and
@@ -123,10 +176,13 @@ crossing the open middle, and an aegis field bites 2.4 out of a bolt that size.
 The fleet was fourteen needles and six lances, which made a third of its points
 food and left it too few guns to chew through 1400 units of keel. The best of
 forty eight runs got one keel to 156 and no run ever closed a bay. Ten needles,
-nine lances and three screens fixes it without touching the defence: the flank
-wins 8 of 12 while the generic commander still loses all twelve, which is the
-shape the back half wants, since there is something to see and pointing squadrons
-at whatever is nearest does not see it.
+nine lances and three screens fixed it without touching the defence, and under
+ballistic gunnery the flank wins eleven of twelve with 71 percent of the fleet
+left. The generic commander reads 58 percent on the same mission now rather than
+zero, so the plan's edge has thinned to a third of the runs and most of the fleet:
+the defence garrisons its overwatch instead of marching it out, and a commander
+that blunders into the middle is punished by fewer guns than used to come and
+find it.
 
 Those numbers are the reason to keep the harness rather than a reason to trust
 it. A win rate can hide anything: the campaign sweep read exactly the same before
@@ -148,12 +204,14 @@ npm run byhand          # eight seeds and a tally
 npm run byhand -- 2091  # one seed, verbose, writes shots/
 ```
 
-Flown that way it takes all eight seeds, releasing between 99 and 122 out with
-four to eight of the courier's ten hulls left, and two passes over the eight print
-the same line for every seed. It used to take six or seven and fail on different
-ones each time, which I had written down as the mission being tight; it was the
-harness spending battle time it never counted, and the clock is what the section
-below is about. Closing from 120 to 80 to be sure of the shot costs six hulls, and
+Flown that way it takes six of the eight seeds, releasing between 96 and 112 out
+with three to seven of the courier's ten hulls aboard, and the two seeds it loses
+are couriers killed on the way in rather than releases that went wrong, which is
+the mission's new price: under ballistic gunnery the terminal leg crosses a
+garrison that shoots where you will be. The tally used to read eight of eight on
+the old model, and before that six or seven failing on different seeds each time,
+which I had written down as the mission being tight; it was the harness spending
+battle time it never counted, and the clock is what the section below is about. Closing from 120 to 80 to be sure of the shot costs six hulls, and
 the wing then dies inside the comm delay with the charge still aboard, so the right
 move is to release on the frame the range line goes green.
 
@@ -427,16 +485,17 @@ npm run hands                      # three seeds, seven missions, a line each
 TRACE=shoal npm run hands -- 1000  # one mission, with a timeline every four seconds
 ```
 
-Flown that way it takes 33 of 35 over five seeds, five of the seven missions taking every one
-and a single seed going against each of Shoal and The Bay Doors. Five seeds still cannot
-separate a plan that wins 60 percent of the time from one that wins 75, so the scripted
-headless plans are where a plan gets compared. What this harness is good for is the part they
-cannot check, which is whether the card can be read, clicked and flown at all, and it reports
-that in the notes under each seed rather than in the number. The note it prints most is a wing
-dying between the moment the plan read the board and the moment it clicked, which reads as
-nothing being selected to send at THORN at T+35. Nine of the ten in the last pass were under a
-seed the plan went on to win, so the note is mostly the cost of reading a board over a comm
-delay; the tenth is the Bay Doors seed it loses, where by T+93 there was nothing left to send.
+Flown that way it takes 21 of 21, every one of the seven missions on all three seeds. Three
+seeds cannot separate a plan that wins 60 percent of the time from one that wins 75, so the
+scripted headless plans are where a plan gets compared. What this harness is good for is the
+part they cannot check, which is whether the card can be read, clicked and flown at all, and
+it reports that in the notes under each seed rather than in the number. The last pass printed
+five of them: two wings that died between the moment the plan read the board and the moment
+it clicked, which reads as nothing being selected to send at THORN at T+44, two waits on a
+bay wing nobody had seen yet at T+78, and one Overwhelm order landing 206 units from the
+cross that was drawn, which is the soft wall holding a retreat that asked to go outside the
+theatre. All five sat under seeds the plan went on to win, so what they measure is the cost
+of reading a board over a comm delay rather than anything about the mission.
 
 Six findings out of that pass, and not one of them was a balance number. The first was mine
 rather than the game's. Five of the six plans said everything they had to say in the first
@@ -663,8 +722,8 @@ one line too many is a button off the bottom of the screen with nothing to click
 
 ## What the first outside hand found
 
-Every measurement above was taken by the person who wrote the interface, and a harness written
-by that person asks the questions the interface already answers. The first hand that was not
+Every measurement above was taken by the same hand that wrote the interface, and a harness
+written by that hand asks the questions the interface already answers. The first hand that was not
 mine got four complaints out of the first few minutes, and each one turned out to be a
 mechanism rather than a matter of taste.
 
@@ -806,3 +865,104 @@ and the order cursor lands 0.00 pixels from the mouse on both the flat plane and
 one shift resolves against. The two pans carry the camera in exactly opposite directions, which
 is right, since a drag moves the picture and a key moves the camera, and the only thing wrong
 was the line above claiming the two gestures did the same thing.
+
+## The dice came out of the gunnery
+
+The same outside hand came back with a harder complaint: ships sit where they are pointed,
+fights resolve themselves, and the first three missions fell without a meaningful order given.
+All of that was one fault wearing three coats. Gunnery was a to-hit formula, an accuracy
+number against an evasion weight, so nothing a hull did between volleys mattered: not its
+vector, not its facing, not whether it was crossing or charging. Movement was decoupled from
+facing because a gun that rolls dice gives geometry nothing to pay for. And a battle with no
+geometry has no tactics, which makes passivity as good as command. `tools/passive.ts` pins
+that last part as a floor now, red thinking and blue silent over eight seeds a mission: 8 of 8
+on First Contact, which is the tutorial teaching that their commander is slow, and 0 of 8
+everywhere else.
+
+Every bolt is a physical object now, and the dice are gone entirely. A bolt leaves a muzzle,
+flies at its own speed, bends in a well, and a swept segment test hits the first hull that
+crosses its path, friend or enemy. What a mount is limited by is tracking: each weapon has a
+traverse rate, the aim trails a target whose angular rate exceeds it, and dispersion scatters
+the rest, so a miss is a place a shell actually went rather than a die that came up short. A
+needle crossing close beats a lance's twelve degrees a second of traverse by simply being
+fast and near; the same needle charging straight in has no angular rate and eats the shell.
+Thrust is coupled to facing the same way, a hull burning sideways at about a third of its
+straight-ahead thrust, and the orders split along it: a move order is a nose-first run at
+full burn with the guns silent, an attack or a hold fights with the nose free and pays for
+manoeuvring in thrust. Wings under fire weave, needles on an attack circle
+their target instead of parking, and a wing whose gun outranges its target's now keeps
+station just outside the answer, which is the give-ground rule the commander used to need
+deleted from `ai.ts` entirely: the standoff does it inside the attack order, without the
+half-minute nose swings that a separate retreat order cost a battery that turns at 3.75
+seconds per about-face.
+
+The first thing the new gunnery did was shoot itself. Every class duel came back a
+mutual-suicide race, and the timeline probe said why in one line: 287 shots, 287 hits on the
+shooter's own side. A bolt spawns 1.32 units ahead of its hull and a needle's hit radius is
+4.4, so under swept collision every ship fired into its own face. A bolt carries its
+shooter's id now and the sweep ignores that one hull, which is the physical claim that a
+muzzle sits outside the hull it is bolted to. Ring formations then shot across their own
+circle at anything beyond it, so a bolt also lives exactly as long as its flight to the aim
+point plus a beat, and a battery holds any shell whose lane a friendly is standing in closer
+than the target.
+
+The class triangle survived the rebuild, and it is geometry now rather than assertion:
+needles take lances 100 to 0 because the orbit out-turns a 12 degree mount, lances take
+keels 100 to 0 because 240 outranges 130, keels take needles 88 to 8 because a capital's
+ring of 55 degree turrets tracks most of what a needle can fly, and every mirror sits
+between 46 and 58 percent. Getting there cost three class changes worth writing down. The
+lance's sensor went from 185 to 275, because a gun that reaches 240 on a hull that sees 185
+marched inside its own artillery advantage before knowing there was a war, and under
+ballistics that walk is the duel lost on approach. The aegis gun became a real flak turret,
+damage 5 on a 0.85 cycle at 140 degrees a second of traverse, the one mount in the fleet
+that out-tracks an orbiting needle, so a screen is now itself the threat to the swarm it
+blunts while still unable to answer artillery, and the screen table reads 63 percent
+against a swarm where eight guns without one read 0. And the needle's standoff moved out to
+six tenths of its range, because the ring's far side was flying through its own wing's fire.
+
+Ballistics hand the volume to the defender, and the campaign had been built on red
+attacking. The side crossing open volume arrives nose-on with no angular rate, which is the
+easy tracking solution, so a red that marched its whole order of battle at a silent blue
+handed over the first three missions for free. Five scenarios now garrison their key wings,
+guards that keep their deployment order instead of joining the sweep, and the campaign
+sweep reads 100, 100, 75, 100, 83, 58, 0 and 8 percent for the generic commander, the
+middle of the campaign winnable by fighting and the last two by nothing but their intended
+solutions. The scripted plans all hold: Deep Well 12 of 12 keeping 68 percent, The Bay
+Doors 11 of 12 closing 23 of 24 bays, Overwhelm 12 of 12 keeping 58 percent with the
+charge spent every run, the Last Exam 20 of 24.
+
+The retreat surfaced a verb the interface could not say. The plan that holds Overwhelm
+falls back on hold orders posted 300 behind the fleet, a fighting withdrawal, guns free and
+thrust taxed, and the interface offered hold only where a wing already stands: rewritten
+onto the orders a player could actually click, the same plan died twelve runs of twelve
+with the fleet never firing, because a retreat on move orders is a retreat flown silent.
+`h` reads the cursor now, posting the selection at the point under it when it is empty
+space and stopping in place when it is not, the legend says hold at cursor, and Overwhelm
+by hand holds all three seeds again, one of them at 24 hulls of 25 with the charge taking
+18 of theirs.
+
+Stances changed meaning under a physical bolt, and the cards that taught them were lies in
+the new model. Tight used to concentrate fire; now it packs a wing into one artillery
+bracket and stands its hulls in each other's firing lanes, which for a battery is
+self-silencing, while wide clears every barrel and makes a bracket buy one hull at most.
+Tight keeps exactly one virtue, packing a squadron under a single aegis field. The mission
+plans in both hand harnesses were re-read accordingly, and the readings that survived the
+old model died measurably under this one: Deep Well flown straight onto the route was wiped
+by T+40 on every seed until the plan learned to break the sortie on a standing line first,
+and Shoal's needles posted 200 forward of their guns traded twelve for eight until the plan
+learned to attack with everything together, the same shape the generic commander wins with.
+
+The Last Exam by hand now reads six of eight, releasing between 96 and 112 out with three
+to seven of ten hulls aboard, and both losses are couriers shot down on the approach rather
+than releases that went wrong: the terminal leg crosses a garrison whose shells arrive
+where the wing will be, and a wing that shadows the courier at gun range never gives the
+tracking model a reason to miss. The launch beat was re-swept for the new model, 14 to 18
+seconds the plateau at 21 and 20 of 24 with a cliff on the late side where the old curve
+was gentle, and the escort autopilot is now briefed the way the winning scripted commander
+is, all the way forward and no wide flanks, which is what keeps the corridor's needle
+screens fighting the escort instead of pacing the courier. The other seven missions flown
+off their cards take 21 of 21 seeds, and the finishing loop learned the one new thing a
+garrison demands: when nothing is drawn and nothing is remembered, the fleet walks up the
+corridor it was invaded from, a leg at a time so the needles never cross an unseen
+battery's envelope alone, because a garrison under fog is an enemy that standing still
+will never show you.
