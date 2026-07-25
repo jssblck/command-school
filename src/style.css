@@ -457,38 +457,58 @@ button {
   border-color: #2e5468;
 }
 
-/* The ladder sits out at the edge rather than in the card, because it is
-   navigation and the card is the briefing. */
-.ladder {
-  position: fixed;
-  right: 26px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
+/* The campaign list. Ruled rows rather than a row of chips, because it is a roster
+   of eight battles in a fixed order and the order is half of what it says. */
+.card .battles {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
 }
 
-.ladder button {
-  color: var(--dim);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
-
-.ladder button:hover:not(:disabled) {
-  color: var(--sel);
-  opacity: 1;
-}
-
-.ladder button.here {
+.card .battles button {
+  display: grid;
+  grid-template-columns: 2em 1fr auto;
+  align-items: baseline;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 9px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
   color: var(--cold);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: none;
+}
+
+.card .battles .n,
+.card .battles .mark {
+  opacity: 0.45;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Taken battles recede and the one you are up to does not, so the list answers
+   "where am I" before it is read. */
+.card .battles button.taken {
+  color: var(--dim);
+}
+
+.card .battles button.next .mark {
+  color: var(--warm);
   opacity: 1;
 }
 
-.ladder button.locked {
-  opacity: 0.22;
+.card .battles button.locked {
+  opacity: 0.25;
+  color: var(--dim);
   cursor: default;
+}
+
+.card .battles button:hover:not(:disabled),
+.card .battles button:focus-visible:not(:disabled) {
+  color: var(--sel);
+  background: #7ff0e00d;
 }

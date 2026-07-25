@@ -16,9 +16,11 @@ installed. The rest run under `npx tsx tools/<name>.ts`: `passive` plays the
 campaign with blue never saying anything, `probe` and `debug` put a single duel
 under a microscope a few seconds at a time, `exam` compares three plans for the
 last mission, `layout` checks every deployment for hulls spawned into rock,
-`shoot` and `play` photograph the volume and the interface, and `pagescheck` boots
-the production build the way Pages serves it, from a path prefix, since an asset
-URL that misses that prefix fails silently into a black canvas. Anything
+`shoot` and `play` photograph the volume and the interface, `campaign` plays the
+screens around the battles rather than a battle, meaning which of the eight are
+open, what a win writes down and where a reload lands, and `pagescheck` boots the
+production build the way Pages serves it, from a path prefix, since an asset URL
+that misses that prefix fails silently into a black canvas. Anything
 driving the browser reads the live page, so editing `src/` mid-run reloads it
 underneath the harness and the run dies on a missing `window.cs`.
 

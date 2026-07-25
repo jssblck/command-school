@@ -363,38 +363,78 @@ const LEGEND = [
 export function briefingScreen(
   scenario: Scenario,
   index: number,
-  all: Scenario[],
-  unlocked: number,
-  handlers: { start: () => void; pick: (index: number) => void },
+  count: number,
+  handlers: { start: () => void; back: () => void },
 ): HTMLElement {
   const wrap = el('div', 'screen')
   const card = el('div', 'card')
   card.append(
-    el('div', 'eyebrow', `battle ${index + 1} of ${all.length}`),
+    el('div', 'eyebrow', `battle ${index + 1} of ${count}`),
     el('h1', undefined, scenario.name),
     el('blockquote', undefined, scenario.epigraph),
   )
   for (const line of scenario.brief) card.append(el('p', undefined, line))
   if (scenario.teaches) card.append(el('div', 'teaches', scenario.teaches))
 
+  const buttons = el('div', 'buttons')
   const go = el('button', 'go', 'take command')
   go.addEventListener('click', handlers.start)
-  card.append(go)
-
-  // Battles already reached stay reachable. A campaign whose fifth battle can only
-  // be seen by winning the first four again is a campaign nobody replays.
-  const ladder = el('div', 'ladder')
-  all.forEach((s, i) => {
-    const open = i < unlocked
-    const item = el('button', i === index ? 'here' : open ? undefined : 'locked', `${i + 1} ${s.name}`)
-    item.disabled = !open || i === index
-    item.addEventListener('click', () => handlers.pick(i))
-    ladder.append(item)
-  })
-  wrap.append(card, ladder)
+  const back = el('button', undefined, 'all battles')
+  back.addEventListener('click', handlers.back)
+  buttons.append(go, back)
+  card.append(buttons)
+  wrap.append(card)
   // preventScroll, because focus pulls its element into view: on a short window that
   // scrolls the briefing down to its own button and opens the card on paragraph three.
   requestAnimationFrame(() => go.focus({ preventScroll: true }))
+  return wrap
+}
+
+export interface CampaignRow {
+  scenario: Scenario
+  /** Reachable: the battle before it has been taken, or it is the first. */
+  open: boolean
+  taken: boolean
+}
+
+/**
+ * The campaign, which is where a commander who comes back lands. Progress used to
+ * exist only as a strip beside whichever briefing happened to be open, so the
+ * battle you had reached was the only door into the other seven and replaying the
+ * third meant opening the seventh's card and reading past it.
+ */
+export function campaignScreen(rows: CampaignRow[], pick: (index: number) => void): HTMLElement {
+  const wrap = el('div', 'screen')
+  const card = el('div', 'card')
+  const taken = rows.filter((r) => r.taken).length
+  card.append(
+    el('div', 'eyebrow', 'command school'),
+    el('h1', undefined, 'Choose a battle'),
+    el(
+      'p',
+      undefined,
+      `${rows.length} battles, ${taken} taken. They run in the order they teach, and every one you have taken stays open to fly again.`,
+    ),
+  )
+
+  const list = el('div', 'battles')
+  const buttons = rows.map((r, i) => {
+    const mark = !r.open ? 'locked' : r.taken ? 'taken' : 'next'
+    const item = el('button', mark)
+    item.disabled = !r.open
+    item.append(el('span', 'n', String(i + 1)), el('span', 'name', r.scenario.name), el('span', 'mark', mark))
+    item.addEventListener('click', () => pick(i))
+    list.append(item)
+    return item
+  })
+  card.append(list)
+  wrap.append(card)
+
+  // The one you would play next, which is the first still open and untaken, or the
+  // last battle in the campaign once every one of them has been taken.
+  const next = rows.findIndex((r) => r.open && !r.taken)
+  const focus = buttons[next >= 0 ? next : rows.length - 1]
+  requestAnimationFrame(() => focus.focus({ preventScroll: true }))
   return wrap
 }
 
@@ -407,7 +447,7 @@ export function reportScreen(
   world: World,
   scenario: Scenario,
   next: Scenario | null,
-  handlers: { again: () => void; next: () => void },
+  handlers: { again: () => void; next: () => void; back: () => void },
 ): HTMLElement {
   const won = world.outcome === 'won'
   const wrap = el('div', 'screen')
@@ -443,6 +483,12 @@ export function reportScreen(
   } else {
     requestAnimationFrame(() => again.focus({ preventScroll: true }))
   }
+  // The way out of the last battle in the campaign, which has no next to offer and
+  // would otherwise leave a commander who has finished it with nowhere to go but
+  // the one they just won.
+  const back = el('button', undefined, 'all battles')
+  back.addEventListener('click', handlers.back)
+  buttons.append(back)
   card.append(buttons)
   wrap.append(card)
   return wrap

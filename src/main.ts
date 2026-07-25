@@ -10,7 +10,7 @@ import { Fx } from './render/fx'
 import { Overlay } from './render/overlay'
 import { Stage } from './render/scene'
 import { Controls } from './ui/controls'
-import { briefingScreen, Hud, reportScreen } from './ui/hud'
+import { briefingScreen, campaignScreen, Hud, reportScreen } from './ui/hud'
 
 const stage = new Stage(document.querySelector<HTMLCanvasElement>('#view')!)
 const rig = new CameraRig()
@@ -38,8 +38,21 @@ const omniscient = params.get('see') === 'all'
  */
 const hold = params.get('hold') === '1'
 
-const PROGRESS = 'commandschool.unlocked'
-const unlocked = (): number => Math.min(SCENARIOS.length, Number(localStorage.getItem(PROGRESS) ?? 1))
+/**
+ * Which battles have been taken, by id. This used to be a high water mark, a count
+ * of how far the campaign had been opened, which cannot say that the last battle
+ * was won: there is nothing past it to unlock, so the number reads the same whether
+ * you beat the Last Exam or stopped in front of it. A set says it, and how far the
+ * campaign is open falls out of it.
+ */
+const PROGRESS = 'commandschool.taken'
+const taken = new Set((localStorage.getItem(PROGRESS) ?? '').split(',').filter(Boolean))
+/** The furthest battle open: the first not yet taken, or the last one in the campaign. */
+function reached(): number {
+  let i = 0
+  while (i + 1 < SCENARIOS.length && taken.has(SCENARIOS[i].id)) i++
+  return i
+}
 
 /**
  * One battle, from the briefing to the report. Everything except the canvas and
@@ -104,7 +117,23 @@ function enter(index: number): void {
   // The volume is built and drawn behind the briefing, held at T+0. Reading the
   // orders over the actual deployment is worth more than reading them over black.
   if (auto) launch()
-  else ui.append(briefingScreen(scenario, index, SCENARIOS, unlocked(), { start: launch, pick: enter }))
+  else ui.append(briefingScreen(scenario, index, SCENARIOS.length, { start: launch, back: campaign }))
+}
+
+/**
+ * The campaign screen, laid over whatever battle is loaded behind it. It is only
+ * ever reachable from a briefing or a report, so there is never a live battle
+ * underneath it to abandon.
+ */
+function campaign(): void {
+  ui.querySelectorAll('.screen').forEach((node) => node.remove())
+  const open = reached()
+  ui.append(
+    campaignScreen(
+      SCENARIOS.map((scenario, i) => ({ scenario, open: i <= open, taken: taken.has(scenario.id) })),
+      enter,
+    ),
+  )
 }
 
 function launch(): void {
@@ -248,13 +277,15 @@ function finish(s: Session): void {
   s.live = false
   s.controls.detach()
   if (s.world.outcome === 'won') {
-    localStorage.setItem(PROGRESS, String(Math.max(unlocked(), Math.min(SCENARIOS.length, s.index + 2))))
+    taken.add(s.scenario.id)
+    localStorage.setItem(PROGRESS, [...taken].join(','))
   }
   const next = SCENARIOS[s.index + 1] ?? null
   ui.append(
     reportScreen(s.world, s.scenario, s.world.outcome === 'won' ? next : null, {
       again: () => enter(s.index),
       next: () => enter(s.index + 1),
+      back: campaign,
     }),
   )
 }
@@ -418,5 +449,11 @@ Object.assign(window, {
 
 let last = performance.now()
 const requested = scenarioById(params.get('m') ?? '')
-enter(requested ? SCENARIOS.indexOf(requested) : unlocked() - 1)
+enter(requested ? SCENARIOS.indexOf(requested) : reached())
+// A commander who has been here before lands on the campaign rather than on
+// whichever battle they stopped in front of, since the reason to come back is
+// usually a battle other than that one. A first visit goes straight into the
+// tutorial: a screen offering one open battle and seven locked ones is a door with
+// nothing behind it.
+if (!requested && !auto && taken.size > 0) campaign()
 requestAnimationFrame(frame)

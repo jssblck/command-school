@@ -875,3 +875,12 @@ The rest of that pass was packaging: the game is a static build with nothing
 behind it, so it deploys to Pages on every push, and this log moved out of the
 README, which had grown to 981 lines of changelog in front of anybody who only
 wanted to know what the game was.
+
+Being hosted somewhere is what turned up the last hole. The campaign was reachable
+only through the briefing of whichever battle you had got to, which is fine while
+you are playing it through in one sitting and useless to somebody coming back a
+week later to fly the third one again. It opens on a list of the eight now, and
+what had been a high water mark of how far the campaign was unlocked is a set of
+the battles taken, because a count cannot say the last battle was won: there is
+nothing past the Last Exam to unlock, so the number reads the same whether you
+beat it or stopped in front of it.

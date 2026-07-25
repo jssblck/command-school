@@ -24,8 +24,10 @@ locally the usual way:
 npm install && npm run dev
 ```
 
-Then open the address Vite prints. Progress through the campaign is kept in local
-storage, and `?m=last-exam&seed=7` opens any battle by id at a chosen seed.
+Then open the address Vite prints. What you have taken is kept in local storage,
+so coming back opens on the list of eight battles rather than on whichever one
+you stopped in front of, and anything already taken stays open to fly again.
+`?m=last-exam&seed=7` opens any battle by id at a chosen seed.
 
 `npm run build` typechecks and writes a static `dist/`, which is the whole game:
 there is no server behind it, so it hosts anywhere that serves files.
