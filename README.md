@@ -22,6 +22,13 @@ npm install && npm run dev
 Then open the address Vite prints. Progress through the campaign is kept in local
 storage, and `?m=last-exam&seed=7` opens any battle by id at a chosen seed.
 
+`npm run build` typechecks and writes a static `dist/`, which is the whole game:
+there is no server behind it, so it hosts anywhere that serves files.
+`.github/workflows/pages.yml` publishes that to GitHub Pages on every push to
+main, and takes the path prefix a project page is served under from the
+repository's own name, so nothing has to be set by hand except the source in the
+repository's Pages settings, which has to be GitHub Actions rather than a branch.
+
 ## What you actually do
 
 Orders are addressed to squadrons, not ships, and they take time to arrive. The
@@ -113,9 +120,11 @@ installed. The rest run under `npx tsx tools/<name>.ts`: `passive` plays the
 campaign with blue never saying anything, `probe` and `debug` put a single duel
 under a microscope a few seconds at a time, `exam` compares three plans for the
 last mission, `layout` checks every deployment for hulls spawned into rock, and
-`shoot` and `play` photograph the volume and the interface. Anything driving the
-browser reads the live page, so editing `src/` mid-run reloads it underneath the
-harness and the run dies on a missing `window.cs`.
+`shoot` and `play` photograph the volume and the interface, and `pagescheck`
+boots the production build the way Pages serves it, from a path prefix, since an
+asset URL that misses that prefix fails silently into a black canvas. Anything
+driving the browser reads the live page, so editing `src/` mid-run reloads it
+underneath the harness and the run dies on a missing `window.cs`.
 
 `npm run check` typechecks the whole project, harnesses included.
 
