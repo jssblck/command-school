@@ -31,6 +31,7 @@ import {
   normalizeInto,
   scale,
   scaledAddInto,
+  segmentDist,
   set,
   sub,
   v3,
@@ -108,6 +109,34 @@ const _tmp = v3()
 const _anchor = v3()
 const _facing = v3()
 const _away = v3()
+const _prev = v3()
+const _rel = v3()
+const _los = v3()
+const _lean = v3()
+
+/**
+ * Seconds of slew the aim trails by, per radian per second of crossing rate the
+ * mount cannot keep up with. This is the whole to-hit model: a shot at a target
+ * crossing within the mount's traverse goes exactly where the lead says, and one
+ * at a target crossing faster lands behind it by the excess times this.
+ */
+const TRACK_LAG = 0.35
+/**
+ * Thrust available off the nose, as a fraction of full burn. One number for every
+ * class rather than a knob each: the differences fall out of turn rate, since a
+ * needle realigns its nose in a frame and a lance spends seconds paying this tax.
+ * The floor is manoeuvring thrusters, so station keeping still works; the slope
+ * is why a hull visibly wheels before it goes anywhere.
+ */
+const LATERAL_THRUST = 0.35
+/**
+ * How far ahead of itself, in radians around the target, a needle wing chases its
+ * attack anchor. A constant lead angle makes the orbit self-sustaining with no
+ * stored state: the anchor is always a step around the circle, so the wing
+ * streams past its target instead of parking at standoff, and the crossing rate
+ * that motion buys is the class's evasion under the tracking model.
+ */
+const ORBIT_LEAD = 0.95
 
 export function step(w: World, dt = DT): void {
   w.t += dt
@@ -266,18 +295,37 @@ function driveSquadron(w: World, sq: Squadron, dt: number): void {
   copy(_anchor, sq.centroid)
   copy(_facing, sq.facing)
 
+  const foe = nearestVisibleEnemy(w, sq.side, sq.centroid)
+  /*
+   * Contact means guns may already be tracking this wing, and that is when hulls
+   * weave, not when they have picked a target of their own. Keyed to acquisition
+   * it started at 190 for a needle while a lance shell reaches 240, so the last
+   * fifty units of every approach were flown straight into the guns, which under
+   * ballistic fire is the whole approach lost.
+   *
+   * Taking fire counts as contact even with nothing on sensors. A needle sees 165
+   * and a lance shells it from 240, so the first volley out of the dark is
+   * unavoidable, which is what scouts are for; flying on straight through the
+   * second one because the shooter is still invisible is not.
+   */
+  let stung = false
+  for (const id of sq.ships) {
+    const s = shipById(w, id)
+    if (s && s.alive && s.stress > 0) {
+      stung = true
+      break
+    }
+  }
+  const hot = stung || (foe !== null && dist(foe.pos, sq.centroid) < 300)
+
   const order = sq.order
   if (order.kind === 'move') {
     copy(_anchor, order.to)
     const d = dist(sq.centroid, order.to)
     if (d > 25) copy(_facing, facingToward(sq.centroid, order.to))
-    else {
-      const foe = nearestVisibleEnemy(w, sq.side, sq.centroid)
-      if (foe) copy(_facing, facingToward(sq.centroid, foe.pos))
-    }
+    else if (foe) copy(_facing, facingToward(sq.centroid, foe.pos))
   } else if (order.kind === 'hold') {
     copy(_anchor, order.at)
-    const foe = nearestVisibleEnemy(w, sq.side, sq.centroid)
     if (foe) copy(_facing, facingToward(sq.centroid, foe.pos))
   } else if (order.kind === 'attack') {
     const target = squadronById(w, order.sq)
@@ -286,9 +334,26 @@ function driveSquadron(w: World, sq: Squadron, dt: number): void {
       sq.order = { kind: 'hold', at: clone(sq.centroid) }
     } else {
       copy(_facing, facingToward(sq.centroid, target.centroid))
-      // Approach along the line we are already on, so squadrons do not spiral.
       const away = normalize(sub(sq.centroid, target.centroid))
-      const keep = c.weapon ? standoff(sq.cls, c.weapon.range) : standoff(sq.cls, 0)
+      const theirs = cls(target.cls).weapon?.range ?? 0
+      const keep = c.weapon ? standoff(sq.cls, c.weapon.range, theirs) : standoff(sq.cls, 0)
+      /*
+       * Brawlers circulate instead of parking. The anchor is placed a fixed angle
+       * ahead of the wing on its own ring around the target, so arriving is joining
+       * a ring the wing then chases forever. From far out the approach is still the
+       * straight line the order describes; the gate is what keeps a wing crossing
+       * the volume from spiralling.
+       *
+       * This is where the needle-beats-lance leg of the triangle now lives. Parked
+       * at standoff a needle is a zero-rate target and a lance shell takes it off
+       * the board; on the ring it crosses the lance's sky at several times the
+       * mount's traverse and the shells land behind it. Artillery holds its line,
+       * because a wall that has to bear on its work cannot also stream around it.
+       */
+      const d = dist(sq.centroid, target.centroid)
+      if (sq.cls === 'needle' && d < keep * 2.2) {
+        orbitStep(away, sq.id % 2 === 0 ? ORBIT_LEAD : -ORBIT_LEAD)
+      }
       set(
         _anchor,
         target.centroid.x + away.x * keep,
@@ -308,9 +373,34 @@ function driveSquadron(w: World, sq: Squadron, dt: number): void {
   for (const id of sq.ships) {
     const s = shipById(w, id)
     if (!s || !s.alive) continue
-    driveShip(w, sq, s, _anchor, dt)
+    driveShip(w, sq, s, _anchor, hot, dt)
   }
 }
+
+/**
+ * Rotate the radial `away` by `theta` around the world's vertical, in place, which
+ * sweeps the attack anchor around the target in a mostly horizontal ring. Near the
+ * poles the vertical is useless as an axis, so any perpendicular serves; the ring
+ * tilts, and a tilted ring circulates just as well.
+ */
+function orbitStep(away: Vec3, theta: number): void {
+  const k = Math.abs(away.y) < 0.85 ? UP_AXIS : anyPerp(away)
+  const cos = Math.cos(theta)
+  const sin = Math.sin(theta)
+  const d = dot(k, away)
+  const cx = k.y * away.z - k.z * away.y
+  const cy = k.z * away.x - k.x * away.z
+  const cz = k.x * away.y - k.y * away.x
+  set(
+    away,
+    away.x * cos + cx * sin + k.x * d * (1 - cos),
+    away.y * cos + cy * sin + k.y * d * (1 - cos),
+    away.z * cos + cz * sin + k.z * d * (1 - cos),
+  )
+  normalizeInto(away)
+}
+
+const UP_AXIS = v3(0, 1, 0)
 
 // ---------------------------------------------------------------------------
 // Ship level: hold a slot, keep the nose on the target, shoot when it bears
@@ -332,7 +422,7 @@ function topSpeed(sq: Squadron, c: ShipClass): number {
   return sq.device > 0 ? c.maxSpeed * CARRY_SPEED : c.maxSpeed
 }
 
-function driveShip(w: World, sq: Squadron, s: Ship, anchor: Vec3, dt: number): void {
+function driveShip(w: World, sq: Squadron, s: Ship, anchor: Vec3, hot: boolean, dt: number): void {
   const c = cls(s.cls)
   const top = topSpeed(sq, c)
 
@@ -350,9 +440,16 @@ function driveShip(w: World, sq: Squadron, s: Ship, anchor: Vec3, dt: number): v
   const approach = Math.min(top, d * 1.7)
   if (d > 1e-4) scaleTo(_des, approach / d)
 
-  // Hulls that are engaged weave, which reads as alive and shaves real damage.
+  /*
+   * Hulls in contact weave. This is real evasion now rather than theatre: the
+   * lead a gun computes extrapolates current velocity, and a velocity that is a
+   * sine wave makes that extrapolation wrong by more than a hull's width over a
+   * long shell's flight, so the weave is what lets a wing cross an artillery
+   * envelope at all. It costs speed made good, which is why it only runs when
+   * somebody is close enough to be shooting.
+   */
   const tgt = s.target >= 0 ? shipById(w, s.target) : undefined
-  if (tgt && tgt.alive) {
+  if (hot || (tgt && tgt.alive)) {
     const jinkAxis = anyPerp(s.fwd)
     const amp = top * (s.cls === 'needle' ? 0.34 : s.cls === 'eye' ? 0.3 : 0.1)
     const wobble = Math.sin(w.t * 2.4 + s.phase) * amp
@@ -365,8 +462,50 @@ function driveShip(w: World, sq: Squadron, s: Ship, anchor: Vec3, dt: number): v
   clampLenInto(_des, top)
 
   sub2(_steer, _des, s.vel)
-  clampLenInto(_steer, c.accel * dt)
-  scaledAddInto(s.vel, _steer, 1)
+
+  /*
+   * Nose before thrust, because thrust follows the nose. A hull with a fixed gun
+   * points at its target while one is near and the order says fight; under a move
+   * order it runs nose-first with its guns silent, which is the spinal trade told
+   * straight: you cannot retreat at full burn and keep firing a gun that is bolted
+   * to the hull. A hull whose gun is a turret owes its nose to nothing and points
+   * it down the burn, which is what makes a wheeling fleet read as a fleet flying
+   * rather than sliding.
+   *
+   * A pinned nose still leans. The mount's spare arc is spent toward the burn, so
+   * a needle holds its target at the edge of its 48 degree cone and puts the rest
+   * of its nose into the turn, which is most of what lets it circle fast enough
+   * to beat a tracking mount. A lance's 22 degrees buys it almost nothing, on
+   * purpose.
+   */
+  const turret = !c.weapon || c.weapon.arc >= Math.PI - 1e-3
+  const fighting = sq.order.kind !== 'move'
+  const aimAt =
+    fighting && !turret && tgt && tgt.alive && c.weapon && dist(s.pos, tgt.pos) < c.weapon.range * 1.5
+      ? tgt.pos
+      : null
+  if (aimAt) {
+    sub2(_tmp, aimAt, s.pos)
+    normalizeInto(_tmp)
+    if (len(_steer) > 1e-4) {
+      copy(_lean, _steer)
+      normalizeInto(_lean)
+      turnToward(_tmp, _lean, c.weapon!.arc * 0.75)
+    }
+  } else if (len(_steer) > c.accel * 0.12) copy(_tmp, _steer)
+  else copy(_tmp, len(s.vel) > 2 ? s.vel : sq.facing)
+  normalizeInto(_tmp)
+  turnToward(s.fwd, _tmp, c.turn * dt)
+
+  // Full burn only near the nose, thrusters everywhere else. Direction is
+  // unchanged: a hull can always creep sideways, it just cannot fight that way.
+  const want = len(_steer)
+  if (want > 1e-4) {
+    const along = Math.max(0, (s.fwd.x * _steer.x + s.fwd.y * _steer.y + s.fwd.z * _steer.z) / want)
+    const eff = LATERAL_THRUST + (1 - LATERAL_THRUST) * along * along
+    clampLenInto(_steer, c.accel * dt * eff)
+    scaledAddInto(s.vel, _steer, 1)
+  }
 
   // Gravity is not compensated: hulls fight wells with their thrust budget only,
   // which is what makes a slingshot or a botched close pass matter.
@@ -391,13 +530,6 @@ function driveShip(w: World, sq: Squadron, s: Ship, anchor: Vec3, dt: number): v
   }
 
   scaledAddInto(s.pos, s.vel, dt)
-
-  // Nose: onto the target if it is anywhere near bearing, else along the track.
-  const aimAt = tgt && tgt.alive && c.weapon && dist(s.pos, tgt.pos) < c.weapon.range * 1.5 ? tgt.pos : null
-  if (aimAt) sub2(_tmp, aimAt, s.pos)
-  else copy(_tmp, len(s.vel) > 2 ? s.vel : sq.facing)
-  normalizeInto(_tmp)
-  turnToward(s.fwd, _tmp, c.turn * dt)
 
   if (c.launch) stepLaunch(w, sq, s, dt)
   if (!c.weapon) return
@@ -676,42 +808,80 @@ function acquireTarget(w: World, s: Ship): void {
   s.target = best
 }
 
+/**
+ * Loose a round at `tgt`, and where it goes is the whole combat model. The gun
+ * computes an honest lead, trails it by whatever crossing rate the mount cannot
+ * follow, scatters it by the weapon's dispersion, and from that point the bolt is
+ * on its own: no roll was made and nothing steers. Every tactical fact falls out
+ * of those three lines. Range works because the same scatter cone subtends less
+ * hull further away; crossing works because the lag is real; and a tight enemy
+ * formation is a better target than a wide one because a round that misses its
+ * mark keeps flying into whoever is behind it.
+ */
 function fire(w: World, s: Ship, tgt: Ship, d: number): void {
   const weapon = cls(s.cls).weapon!
+
+  // One fixed-point pass on the lead: aim where the target will be, then correct
+  // the flight time for where that is. A second pass moves the answer under a
+  // tenth of a unit at these speeds.
+  let flight = d / weapon.boltSpeed
+  const aim = v3(tgt.pos.x + tgt.vel.x * flight, tgt.pos.y + tgt.vel.y * flight, tgt.pos.z + tgt.vel.z * flight)
+  flight = dist(s.pos, aim) / weapon.boltSpeed
+  set(aim, tgt.pos.x + tgt.vel.x * flight, tgt.pos.y + tgt.vel.y * flight, tgt.pos.z + tgt.vel.z * flight)
+
+  // The crossing rate is relative, so a fast shooter suffers it against a parked
+  // target exactly as a parked shooter suffers it against a fast one.
+  sub2(_rel, tgt.vel, s.vel)
+  sub2(_los, aim, s.pos)
+  normalizeInto(_los)
+  scaledAddInto(_rel, _los, -dot(_rel, _los))
+  const omega = len(_rel) / Math.max(d, 1)
+  const lag = Math.min(0.5, Math.max(0, omega - weapon.traverse) * TRACK_LAG)
+  if (lag > 0) {
+    // Behind the target's apparent motion: the mount is late, not wrong at random.
+    normalizeInto(_rel)
+    scaledAddInto(aim, _rel, -lag * d)
+  }
+
+  // A friendly standing in the lane holds the shot, before any of it is spent, so
+  // the gun fires the moment the lane clears. This is what a formation's shape now
+  // costs and buys: a wall bears everything it has, a ball masks its own rear
+  // ranks, and firing over your own screen into a melee is a thing you choose.
+  for (const o of w.ships) {
+    if (!o.alive || o.side !== s.side || o.id === s.id) continue
+    if (dist2(s.pos, o.pos) >= d * d) continue
+    if (segmentDist(s.pos, aim, o.pos) < hitRadius(o.cls) + 2) return
+  }
+
   s.reload = weapon.cycle * w.rng.range(0.92, 1.08)
   s.heat = 1
   w.stats.shots++
 
-  const flight = d / weapon.boltSpeed
-  const aim = v3(
-    tgt.pos.x + tgt.vel.x * flight,
-    tgt.pos.y + tgt.vel.y * flight,
-    tgt.pos.z + tgt.vel.z * flight,
+  const muzzle = v3(
+    s.pos.x + s.fwd.x * cls(s.cls).size * 0.6,
+    s.pos.y + s.fwd.y * cls(s.cls).size * 0.6,
+    s.pos.z + s.fwd.z * cls(s.cls).size * 0.6,
   )
+  const scatter = w.rng.sphere(weapon.dispersion)
+  const dir = normalize(sub(aim, muzzle))
+  dir.x += scatter.x
+  dir.y += scatter.y
+  dir.z += scatter.z
+  normalizeInto(dir)
 
-  const evasion = (len(tgt.vel) / 64) * weapon.evasionWeight
-  const reach = (d / weapon.range) ** 2 * 0.22
-  const acc = Math.max(0.12, Math.min(0.98, weapon.accuracy - evasion - reach))
-  const hit = w.rng() < acc
-  if (!hit) {
-    // Throw the shot wide enough to read as a miss, not as a phantom hit.
-    const off = w.rng.sphere(hitRadius(tgt.cls) * 4 + 3)
-    aim.x += off.x
-    aim.y += off.y
-    aim.z += off.z
-  }
-
-  const dir = normalize(sub(aim, s.pos))
   w.bolts.push({
     id: w.nextId++,
     side: s.side,
-    pos: v3(s.pos.x + s.fwd.x * cls(s.cls).size * 0.6, s.pos.y + s.fwd.y * cls(s.cls).size * 0.6, s.pos.z + s.fwd.z * cls(s.cls).size * 0.6),
+    from: s.id,
+    pos: muzzle,
     vel: v3(dir.x * weapon.boltSpeed, dir.y * weapon.boltSpeed, dir.z * weapon.boltSpeed),
     damage: weapon.damage,
-    life: (weapon.range / weapon.boltSpeed) * 1.9 + 0.3,
-    aim,
-    target: tgt.id,
-    hit,
+    // Enough flight to arrive plus a short overrun, per shot rather than per
+    // weapon. A miss still sprays the formation standing behind the target, but
+    // it does not carry on across a whole melee: a ring of needles firing inward
+    // at a wing it surrounds was taking more of its own hulls off the far side
+    // of the ring than lances it was ringing.
+    life: dist(muzzle, aim) / weapon.boltSpeed + 0.15,
     cls: s.cls,
   })
   w.events.push({ kind: 'shot', pos: clone(s.pos), side: s.side, cls: s.cls })
@@ -729,28 +899,35 @@ function stepBolts(w: World, dt: number): void {
     gravityAt(w, b.pos, _grav)
     scaledAddInto(b.vel, _grav, dt)
 
-    const tgt = b.target >= 0 ? shipById(w, b.target) : undefined
-    if (b.hit && tgt && tgt.alive) {
-      // A shot that rolled a hit tracks its mark, so damage stays predictable
-      // while the bolt still curves and reads as a physical object.
-      sub2(_tmp, tgt.pos, b.pos)
-      normalizeInto(_tmp)
-      const speed = len(b.vel)
-      const k = Math.min(1, dt * 7)
-      b.vel.x += (_tmp.x * speed - b.vel.x) * k
-      b.vel.y += (_tmp.y * speed - b.vel.y) * k
-      b.vel.z += (_tmp.z * speed - b.vel.z) * k
-    }
-
+    copy(_prev, b.pos)
     scaledAddInto(b.pos, b.vel, dt)
 
-    if (tgt && tgt.alive) {
-      const hr = hitRadius(tgt.cls) + 1.5
-      if (dist2(b.pos, tgt.pos) < hr * hr) {
-        damage(w, tgt, b.damage, b.side)
-        w.events.push({ kind: 'hit', pos: clone(b.pos), side: b.side, cls: tgt.cls, power: b.damage })
-        continue
+    /*
+     * Swept against every hull on both sides, because a bolt no longer knows who it
+     * was for. The first hull along the path takes it, friend or foe: that is what
+     * makes interposition a tactic and stray fire a cost. Swept rather than point
+     * tested since a round moves five to six units a frame and a needle is three
+     * wide, so a point test would tunnel through the very hulls dodging matters for.
+     */
+    const step = len(b.vel) * dt
+    let struck: Ship | null = null
+    let along = Infinity
+    for (const ship of w.ships) {
+      if (!ship.alive || ship.id === b.from) continue
+      const hr = hitRadius(ship.cls) + 1.5
+      const cull = step + hr
+      if (dist2(_prev, ship.pos) > cull * cull) continue
+      if (segmentDist(_prev, b.pos, ship.pos) >= hr) continue
+      const t = dist2(_prev, ship.pos)
+      if (t < along) {
+        along = t
+        struck = ship
       }
+    }
+    if (struck) {
+      damage(w, struck, b.damage, b.side)
+      w.events.push({ kind: 'hit', pos: clone(struck.pos), side: b.side, cls: struck.cls, power: b.damage })
+      continue
     }
 
     // Bolts that plough into a planet stop there.

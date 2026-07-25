@@ -8,9 +8,12 @@ const GOLDEN = 2.399963229728653
  * Where hull `slot` sits relative to the squadron anchor.
  *
  * Stance is the one tactical dial the player has below the level of orders, and
- * each shape is a real trade:
+ * each shape is a real trade. Under ballistic gunnery the trade moved: a hull in
+ * a friendly's firing lane silences that gun, so packing a wing no longer
+ * concentrates its fire, it masks it.
  *
- *   tight  concentrates fire into a small volume, and dies to one device shot
+ *   tight  packs the wing under one aegis field, into one artillery bracket,
+ *          and in front of its own barrels
  *   open   a wedge: good bearing on the axis of advance, moderate footprint
  *   wide   a thin wall across the axis: everything bears, nothing clusters
  *
@@ -62,13 +65,31 @@ export function formationRadius(cls: ClassId, stance: Stance, n: number): number
  * its weapon range only ever gets its nose ships into the fight. Brawlers
  * therefore aim well inside their own reach and let the two volumes interleave,
  * while lances hold a line far enough back that even their trailing hulls bear.
+ *
+ * When this gun outranges the target's, the station also clears the target's
+ * envelope, which is what a range advantage is: the anchor tracks the target
+ * every frame, so a battery holds its distance from an advancing keel by backing
+ * as it fires instead of flipping between an attack and a retreat order and
+ * spending the whole battle turning its nose. Left out, a lance held 173 against
+ * a keel that shoots to 130 and walks forward, and lost the duel to a class it
+ * outranges by 110.
  */
-export function standoff(cls: ClassId, range: number): number {
+export function standoff(cls: ClassId, range: number, targetReach = 0): number {
+  const base = baseStandoff(cls, range)
+  if (range > targetReach && targetReach > 0) {
+    return Math.max(base, Math.min(targetReach * 1.45, range * 0.93))
+  }
+  return base
+}
+
+function baseStandoff(cls: ClassId, range: number): number {
   switch (cls) {
     case 'lance':
       return range * 0.72
     case 'needle':
-      return range * 0.42
+      // Wide enough that the ring a brawling wing flies does not have its far
+      // side inside its own guns' overrun, and still well inside reach.
+      return range * 0.6
     case 'aegis':
       return range * 0.4
     case 'keel':

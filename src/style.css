@@ -24,9 +24,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* The canvas is a replaced element, so inset alone does not stretch it: without an
+   explicit size it lays out at its drawing-buffer size, which is the window times
+   devicePixelRatio. At 150% Windows scaling that painted the picture half again as
+   large as the window, cropped, and every click landed 1.5x away from where the
+   code resolved it. The buffer stays at dpr resolution; this scales it to fit. */
 #view {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
   display: block;
 }
 

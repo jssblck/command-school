@@ -45,14 +45,26 @@ export interface Weapon {
   damage: number
   /** Seconds between shots. */
   cycle: number
-  /** Half-angle of the firing cone, in radians. Capitals get a full sphere. */
+  /**
+   * Half-angle of the firing cone, in radians. A full sphere (pi) is a turret,
+   * which also decides what the hull does with its nose: a turret tracks on its
+   * own, so the hull is free to point at its burn, while a fixed mount has to be
+   * pointed, so firing and manoeuvring spend the same nose.
+   */
   arc: number
   /** Bolt travel speed; slow bolts curve visibly through gravity wells. */
   boltSpeed: number
-  /** Hit chance against a stationary target at point blank range. */
-  accuracy: number
-  /** How much of the accuracy budget the target's speed can eat. */
-  evasionWeight: number
+  /**
+   * Angular rate, radians per second, the mount can track cleanly. A target
+   * crossing faster than this leaves the aim lagging behind it, which is where
+   * misses come from now: there is no to-hit roll anywhere. Crossing an enemy's
+   * guns is evasion, charging them is suicide, and both are geometry the player
+   * can see and use.
+   */
+  traverse: number
+  /** Random scatter of the launch direction, in radians. Range falloff is implied:
+   * the same cone covers a hull at knife range and misses it across the volume. */
+  dispersion: number
 }
 
 export interface Ship {
@@ -162,17 +174,28 @@ export interface Body {
   seed: number
 }
 
+/**
+ * A bolt is a physical object and nothing else: it flies straight, bends through
+ * wells, and wrecks the first hull it touches, on either side. It used to carry
+ * its verdict with it, a to-hit roll made at the trigger with the bolt homing
+ * onto its mark or thrown wide to sell the lie, which made every tactical
+ * question except range and gun count meaningless. Now the miss is whatever the
+ * geometry says it is, and a stray round carries on downrange into whoever is
+ * standing there.
+ */
 export interface Bolt {
   id: number
   side: Side
+  /**
+   * The hull that fired it, which is the one hull the sweep must ignore: the
+   * muzzle sits closer to the shooter's own centre than its hit radius reaches,
+   * so without this every shot in the game struck its own gun on frame one.
+   */
+  from: number
   pos: Vec3
   vel: Vec3
   damage: number
   life: number
-  /** Aim point; a miss is modelled by offsetting this at fire time. */
-  aim: Vec3
-  target: number
-  hit: boolean
   cls: ClassId
 }
 

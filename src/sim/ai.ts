@@ -269,20 +269,18 @@ function commit(w: World, cmd: Commander, sq: Squadron, theirs: Squadron[]): voi
   }
   if (!target) return
 
-  // Lances that have been caught by interceptors give ground rather than trade,
-  // unless they are the ones holding a charge. Backing away is what kept the device
-  // in the bay for whole battles: the reach of the charge is shorter than the range
-  // a battery likes to sit at, so a carrier that keeps its distance never gets to
-  // use the one thing it was given.
-  if (sq.cls === 'lance' && sq.device <= 0) {
-    const threat = nearestThreat(w, sq, 'needle')
-    if (threat && dist(threat.pos, sq.centroid) < 130) {
-      const away = normalize(sub(sq.centroid, threat.pos))
-      issueOrder(w, sq, { kind: 'move', to: offset(sq.centroid, away, 260) }, 'open')
-      return
-    }
-  }
-
+  /*
+   * There is no give-ground rule here any more, and its absence is load bearing.
+   * Kiting what a lance outranges is the standoff's job now: the attack anchor
+   * clears the target's envelope and tracks it every frame, so the battery backs
+   * away firing. The old rule issued a move order instead, and under the spinal
+   * mount a move order is a 180 degree nose turn at 48 degrees a second each
+   * way: a battery that flinched every think spent the whole battle turning and
+   * fired five shells in forty seconds. Against the needles that can actually
+   * catch a lance, fleeing is the same silence with the same ending, so the
+   * right move is the one the anchor already makes: keep the guns on them for
+   * every second of the approach.
+   */
   const d = dist(sq.centroid, target.centroid)
   // Flank only from outside the ring the waypoint sits on. Testing against a flat
   // 330 instead let a fleet orbit its target for a whole battle: the waypoint lands
@@ -317,23 +315,6 @@ function pickStance(w: World, sq: Squadron, target: Squadron): Squadron['stance'
   if (sq.cls === 'keel') return 'open'
   if (n <= 4) return 'tight'
   return 'open'
-}
-
-function nearestThreat(w: World, sq: Squadron, of: ClassId): Ship | null {
-  const foe = other(sq.side)
-  const seen = w.seen[sq.side]
-  let best: Ship | null = null
-  let bd = Infinity
-  for (const s of w.ships) {
-    if (!s.alive || s.side !== foe || s.cls !== of) continue
-    if (!seen.has(s.id)) continue
-    const d = dist(s.pos, sq.centroid)
-    if (d < bd) {
-      bd = d
-      best = s
-    }
-  }
-  return best
 }
 
 /** How far off the axis a flank swings, and how far short of the target it stops. */

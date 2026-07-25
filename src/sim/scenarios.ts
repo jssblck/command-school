@@ -72,7 +72,7 @@ export const SCENARIOS: Scenario[] = [
       'A dead moon sits between you. Nothing shoots through rock, though sensors read straight through it, so the moon buys you a lane out of their lances rather than a way to arrive unseen.',
       'Lances reach more than twice as far as a needle but only fire through a narrow cone, so the shape you hold decides how many of them can speak at once.',
     ],
-    teaches: 'Press Z X C to set a stance: tight concentrates fire, open advances, wide spreads a wall. Press G to line the reference grid up on the enemy.',
+    teaches: 'Press Z X C to set a stance. Tight packs the wing under one screen and into one bracket, wide clears every barrel and spreads a wall, open splits the difference. Press G to line the reference grid up on the enemy.',
     build(seed) {
       const w = shell({ kind: 'annihilate', text: 'Destroy the enemy flight' }, seed, 0.45, 780)
       addBody(w, { kind: 'moon', name: 'Cusp', pos: v3(0, -20, 40), radius: 92 })
@@ -80,7 +80,11 @@ export const SCENARIOS: Scenario[] = [
       addSquadron(w, { side: 'blue', cls: 'lance', name: BLUE[1], count: 4, at: v3(120, -30, -390), facing: forward })
       addSquadron(w, { side: 'red', cls: 'needle', name: 'DRIFT', count: 8, at: v3(90, 60, 340), facing: back })
       addSquadron(w, { side: 'red', cls: 'lance', name: 'THORN', count: 2, at: v3(-60, -40, 420), facing: back })
-      return enemyOf(w, { aggression: 0.55, skill: 0.3, period: 2 })
+      // The lances hold their ground. Under ballistic gunnery the side that
+      // crosses open volume is the side that pays, so a red that attacks with
+      // everything hands the mission to a blue that never gives an order; a
+      // battery that waits behind the moon is the thing the mission is about.
+      return enemyOf(w, { aggression: 0.55, skill: 0.3, period: 2 }, ['THORN'])
     },
   },
 
@@ -91,6 +95,7 @@ export const SCENARIOS: Scenario[] = [
     brief: [
       'A live planet holds the middle of the volume. It stops bolts and it hides whatever is behind it.',
       'The straight line between your fleet and theirs runs through the rock. Your leaders will not fly into it. They will go around, and arrive late, off to one side, and strung out in front of five lances that outrange you two to one.',
+      'Their swarm will cross to you first, and the side crossing open volume is the side that pays. Meet it standing. Then pick your way around.',
     ],
     teaches:
       'Hold Shift while placing a move order to set its height. A second line under the order is the run your squadrons will actually fly, and where it bows off the line you drew, the rock is charging you seconds in the open. Pick the way around yourself.',
@@ -102,7 +107,9 @@ export const SCENARIOS: Scenario[] = [
       addSquadron(w, { side: 'blue', cls: 'lance', name: BLUE[1], count: 4, at: v3(-320, -60, -470), facing: forward })
       addSquadron(w, { side: 'red', cls: 'needle', name: 'DRIFT', count: 10, at: v3(240, -70, 420), facing: back })
       addSquadron(w, { side: 'red', cls: 'lance', name: 'THORN', count: 5, at: v3(310, 90, 480), facing: back })
-      return enemyOf(w, { aggression: 0.6, skill: 0.4, period: 1.9 })
+      // Five lances that stay on their side of the rock, which is what makes the
+      // route the mission: blue has to cross and they do not.
+      return enemyOf(w, { aggression: 0.6, skill: 0.4, period: 1.9 }, ['THORN'])
     },
   },
 
@@ -112,7 +119,7 @@ export const SCENARIOS: Scenario[] = [
     epigraph: 'A fleet you cannot see is a fleet that is already behind you.',
     brief: [
       'A debris belt cuts the volume in half. Sensors die inside it, and so do hulls, slowly.',
-      'You have eyes: unarmed, fast, and able to see two and a half times as far as anything else you own. Lose them and you are commanding blind.',
+      'You have eyes: unarmed, fast, and able to see nearly twice as far as anything else you own. Lose them and you are commanding blind.',
     ],
     teaches:
       'A grey tick with a drop line is a memory, not a contact: it marks where a wing was when you last had it, and the ring around it how wide it was spread. Their guns can cross the belt unseen, so keep an eye alive and out of the dust.',
@@ -149,7 +156,9 @@ export const SCENARIOS: Scenario[] = [
       addSquadron(w, { side: 'red', cls: 'needle', name: 'SHOAL', count: 14, at: v3(120, -10, 300), facing: back, scatter: 40 })
       addSquadron(w, { side: 'red', cls: 'lance', name: 'THORN', count: 3, at: v3(-180, -30, 430), facing: back })
       addSquadron(w, { side: 'red', cls: 'eye', name: 'VEIL', count: 1, at: v3(300, 40, 380), facing: back })
-      return enemyOf(w, { aggression: 0.6, skill: 0.55, period: 1.8 })
+      // Their artillery lurks on its own side of the belt, firing across it at
+      // what the swarm flushes out, which is the ambush the card describes.
+      return enemyOf(w, { aggression: 0.6, skill: 0.55, period: 1.8 }, ['THORN'])
     },
   },
 
@@ -162,7 +171,7 @@ export const SCENARIOS: Scenario[] = [
       'The field has a source. Kill the source and the arithmetic reverses.',
       'You have two sources of your own, and a field takes the same bite out of every bolt that crosses it: all of a needle\'s shot, and a rounding error off a shell. Sixteen of their needles cannot hurt what is standing under yours, and your artillery is not what needs the cover.',
     ],
-    teaches: 'Aegis hulls project the screen you keep failing to break. Target them first, and mass on one at a time.',
+    teaches: 'Aegis hulls project the screen you keep failing to break, and their line holds its ground under it. Break the sortie on your own guns first, then go in and put the sources out one at a time.',
     build(seed) {
       const w = shell({ kind: 'annihilate', text: 'Destroy the enemy fleet' }, seed, 0.6, 880)
       addBody(w, { kind: 'planet', name: 'Vault', pos: v3(-360, -120, 260), radius: 150, mu: 150 * 150 * 5 })
@@ -176,7 +185,10 @@ export const SCENARIOS: Scenario[] = [
       addSquadron(w, { side: 'red', cls: 'needle', name: 'DRIFT', count: 16, at: v3(60, 40, 330), facing: back })
       addSquadron(w, { side: 'red', cls: 'lance', name: 'THORN', count: 4, at: v3(-90, -20, 440), facing: back })
       addSquadron(w, { side: 'red', cls: 'aegis', name: 'HUSK', count: 4, at: v3(0, 10, 390), facing: back })
-      return enemyOf(w, { aggression: 0.65, skill: 0.6, period: 1.7 })
+      // The line under the field stands; the swarm sorties from it. A red that
+      // marched the whole formation out gave up the screened position the
+      // mission is named for and died on blue's guns in the open.
+      return enemyOf(w, { aggression: 0.65, skill: 0.6, period: 1.7 }, ['THORN', 'HUSK'])
     },
   },
 
@@ -235,7 +247,11 @@ export const SCENARIOS: Scenario[] = [
       // lines down onto anything crossing the ring toward the bays.
       addSquadron(w, { side: 'red', cls: 'lance', name: 'THORN', count: 6, at: v3(-40, 190, 300), facing: back })
       addSquadron(w, { side: 'red', cls: 'aegis', name: 'HUSK', count: 3, at: v3(-60, 20, 520), facing: back })
-      return enemyOf(w, { aggression: 0.7, skill: 0.65, period: 1.6 })
+      // The defence defends: the keels are the bases, THORN is the overwatch the
+      // brief describes, and the screen stays on the things it screens. Only the
+      // bay wings sortie. Unreserved, the whole position marched at blue and the
+      // mission stopped being about getting through anything.
+      return enemyOf(w, { aggression: 0.7, skill: 0.65, period: 1.6 }, ['THORN', 'HUSK', 'COIL', 'SPIRAL'])
     },
   },
 
@@ -246,7 +262,7 @@ export const SCENARIOS: Scenario[] = [
     brief: [
       'Three to one against, and they are coming from two axes. Nobody expects you to sweep this volume.',
       'Almost every hull in that mass carries a needle gun and nothing heavier, so your screens will bite every shot they take. Thirty six guns will empty them anyway.',
-      'The order says hold the volume for a minute and a half. It does not say hold still, and there are nine hundred units of it. A fleet that keeps opening the range from their centre of mass outlives one that plants itself behind Anvil and waits to be surrounded.',
+      'The order says hold the volume for a minute and a half. It does not say hold still, and there are nine hundred units of it. Give ground on posts, H at a point behind the fleet, and the wings fall back shooting. A move order is the other retreat, full burn and guns silent, and a fleet that runs silent from this many needles is run down.',
       'JOHNSON carries the charge and JOHNSON has no guns. That is deliberate: the cascade walks three and a half times as far as you can throw it, so whoever releases it is standing in the burst.',
     ],
     // The device and nothing else, on the mission that already asks the player to read
@@ -256,7 +272,7 @@ export const SCENARIOS: Scenario[] = [
     // standing behind Anvil holds 5, and standing still holds 1, because a rock that
     // blocks fire also pins you against something red can englobe.
     teaches:
-      'Press D with a carrying squadron selected, then click a target: the panel counts what the cascade takes, and says how far your nearest hull is from the burst against how far the burst walks.',
+      'Press E with a carrying squadron selected, then click a target: the panel counts what the cascade takes, and says how far your nearest hull is from the burst against how far the burst walks.',
     build(seed) {
       /*
        * Ninety seconds, because that is how long the mission is a fight. Every one of red's

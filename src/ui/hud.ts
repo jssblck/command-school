@@ -350,7 +350,7 @@ function orderText(w: World, id: ClassId, order: Order): string {
  */
 const LEGEND = [
   '<b>click</b> select  <b>shift</b> add / altitude  <b>1-9 tab</b> squadron  <b>q</b> all',
-  '<b>right click</b> order  <b>h</b> hold  <b>z x c</b> tight open wide  <b>e</b> arm device',
+  '<b>right click</b> order  <b>h</b> hold at cursor  <b>z x c</b> tight open wide  <b>e</b> arm device',
   '<b>wasd</b> or <b>middle drag</b> pan  <b>drag</b> look  <b>wheel</b> zoom',
   '<b>f</b> follow  <b>l</b> level  <b>g</b> gate down  <b>space</b> hold time  <b>[ ]</b> slower faster',
 ].join('<br>')

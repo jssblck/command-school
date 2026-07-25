@@ -74,6 +74,13 @@ async function fly(page: Page, seed: number, loud: boolean): Promise<string> {
     const cs = (window as unknown as { cs: any }).cs
     const i = cs.controls.roster().findIndex((sq: any) => sq.device > 0)
     cs.pilot.reserved.add(cs.controls.roster()[i].id)
+    // The autopilot ships tuned for screenshots, not for this errand. Brief it the way the
+    // scripted plan briefs its commander: all the way forward and no wide flanks, because
+    // an escort that swings 300 off the axis leaves the corridor's needle screens with
+    // nothing to shoot at but the courier. This is the standing order a player gives the
+    // rest of the fleet, so it belongs to the hand rather than to the harness.
+    cs.pilot.cfg.aggression = 0.9
+    cs.pilot.cfg.skill = 0.4
     return String(i + 1)
   })
 
@@ -151,12 +158,18 @@ async function fly(page: Page, seed: number, loud: boolean): Promise<string> {
     note(`  escort onto ${knot.name}`)
   }
 
-  // Eighteen seconds is the whole plan. Hold the courier back while the escort crosses,
+  // Fourteen seconds is the whole plan. Hold the courier back while the escort crosses,
   // because a carrier flies at seven tenths speed and arriving first means arriving alone.
-  await beat(page, 8)
+  // The sweep in tools/balance.ts picked the number: under ballistic gunnery the window
+  // is fourteen to eighteen and the late side is the cliff. It pairs with the escort
+  // briefing above, and the pairing was measured, not reasoned: an escort pressed all the
+  // way forward burns out sooner, and a courier that leaves at eighteen behind that
+  // escort crosses the terminal leg after the corridor's needle screens have been freed,
+  // which took the eight seeds from six wins to four.
+  await beat(page, 3)
   await page.evaluate(() => (window as unknown as { cs: any }).cs.frame(1.05))
   await beat(page, 0.05)
-  if (loud) await page.screenshot({ path: `${OUT}/byhand-18s.png` })
+  if (loud) await page.screenshot({ path: `${OUT}/byhand-launch.png` })
 
   /**
    * A pixel on the planet with nothing of theirs under the cursor.

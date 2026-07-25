@@ -513,12 +513,29 @@ export class Controls {
         }
         return
       }
-      case 'h':
+      case 'h': {
+        /*
+         * A hold is a place, and the cursor is how a place is said: over empty space,
+         * `h` posts the selection there, and over any contact, or nothing readable, it
+         * stops the wing where it stands, which is the old gesture unchanged.
+         *
+         * The point of saying it is that a posted wing crosses fighting. A move order
+         * runs nose-first at full burn with the guns silent, while a wing anchored
+         * somewhere else keeps its guns free and pays the difference in thrust, and
+         * before this key could name a place that second thing could not be said at
+         * all: the fleet that survives Overwhelm falls back on posts 300 behind
+         * itself, and flown with move orders instead the same plan is a wipe, twelve
+         * runs of twelve, because the whole retreat runs silent.
+         */
+        this.trace()
+        const posted = this.hover === null && this.aimValid
         for (const sq of this.selection()) {
-          issueOrder(this.world, sq, { kind: 'hold', at: { ...sq.centroid } })
+          const at = posted ? { x: this.aim.x, y: this.aim.y, z: this.aim.z } : { ...sq.centroid }
+          issueOrder(this.world, sq, { kind: 'hold', at })
           this.say(`${sq.name} hold`, 'order')
         }
         return
+      }
       case 'e':
         this.arm()
         return

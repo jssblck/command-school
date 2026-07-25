@@ -1,11 +1,11 @@
 /**
- * Six of the eight missions had only ever been won by a script that calls the simulation
+ * Seven of the eight missions had only ever been won by a script that calls the simulation
  * directly, or by the commander playing both sides. Neither presses a key. This plays each
- * of the six by hand through the real interface, with fog on and nothing issuing blue's
+ * of the seven by hand through the real interface, with fog on and nothing issuing blue's
  * orders, and each plan is the reading a player takes off the briefing card rather than the
  * best line I can find.
  *
- *   npx tsx tools/hands.ts                 three seeds, six missions, a line each
+ *   npx tsx tools/hands.ts                 three seeds, seven missions, a line each
  *   npx tsx tools/hands.ts 1000            one seed
  *   TRACE=shoal npx tsx tools/hands.ts     one mission, with a timeline every four seconds
  *
@@ -151,9 +151,28 @@ class Hand {
    * and clicks once, which is the gesture a competent hand settles into.
    */
   async move(to: P3, opts: { lead?: string } = {}): Promise<void> {
+    return this.sendTo(to, 'move', opts)
+  }
+
+  /**
+   * A post at a point in space: the same camera work and the same cursor, ended with `h`
+   * instead of a right click. The difference is the whole reason Overwhelm is winnable by
+   * hand. A move order runs nose-first at full burn with the guns silent, while a wing
+   * anchored on a post crosses fighting and pays for it in thrust, and a retreat flown on
+   * move orders is a retreat that never shoots back: the same plan holds all twelve
+   * headless runs on posts and none of twelve on moves.
+   *
+   * `h` reads the point only over empty space, so the cursor slides off any contact that
+   * has drifted under it, the way a hand slides off a mis-pick before committing.
+   */
+  async holdAt(to: P3, opts: { lead?: string } = {}): Promise<void> {
+    return this.sendTo(to, 'hold', opts)
+  }
+
+  private async sendTo(to: P3, kind: 'move' | 'hold', opts: { lead?: string } = {}): Promise<void> {
     const from = await where(this.page, opts.lead ?? (await this.leadName()))
     if (!from) {
-      this.notes.push(`nothing is selected to move at T+${await this.clock()}`)
+      this.notes.push(`nothing is selected to ${kind === 'move' ? 'move' : 'post'} at T+${await this.clock()}`)
       return
     }
     const leg = { x: to.x - from.x, y: to.y - from.y, z: to.z - from.z }
@@ -166,7 +185,7 @@ class Hand {
       yaw: ${yaw}, pitch: 0.05, dist: ${Math.min(4200, span * 1.5 + 320)},
       at: { x: ${(from.x + to.x) / 2}, y: ${(from.y + to.y) / 2}, z: ${(from.z + to.z) / 2} } })`)
     await settle(this.page)
-    const px = (await this.page.evaluate(`window.cs.project(${JSON.stringify(to)})`)) as {
+    let px = (await this.page.evaluate(`window.cs.project(${JSON.stringify(to)})`)) as {
       x: number
       y: number
     } | null
@@ -177,6 +196,25 @@ class Hand {
     await this.page.keyboard.down('Shift')
     await this.page.mouse.move(px.x, px.y)
     await settle(this.page)
+    // A post reads the cursor's point only over empty space, so a contact under the
+    // pixel turns `h` into "stop where you stand". Slide off it before committing.
+    if (kind === 'hold') {
+      for (const r of [0, 14, 26, 40]) {
+        let clear = false
+        for (let k = 0; k < (r === 0 ? 1 : 8) && !clear; k++) {
+          const a = (k / 8) * Math.PI * 2
+          await this.page.mouse.move(px.x + Math.cos(a) * r, px.y + Math.sin(a) * r)
+          await settle(this.page)
+          clear = (await this.page.evaluate(
+            'window.cs.controls.hover === null && window.cs.controls.aimValid',
+          )) as boolean
+          if (clear) {
+            px = { x: px.x + Math.cos(a) * r, y: px.y + Math.sin(a) * r }
+          }
+        }
+        if (clear) break
+      }
+    }
     /*
      * The cross under the cursor, read before the click, because that is the promise the player
      * can check: the interface draws where the order will land and then puts it there. Measured
@@ -189,7 +227,8 @@ class Hand {
       const c = window.cs.controls
       return c.aimValid ? { x: c.aim.x, y: c.aim.y, z: c.aim.z } : null
     })()`)) as P3 | null
-    await this.page.mouse.click(px.x, px.y, { button: 'right' })
+    if (kind === 'move') await this.page.mouse.click(px.x, px.y, { button: 'right' })
+    else await this.page.keyboard.press('h')
     await this.page.keyboard.up('Shift')
     if (!cross) {
       this.notes.push(`the cursor read nothing at ${fmt(to)} at T+${await this.clock()}`)
@@ -199,12 +238,14 @@ class Hand {
     const off = (await this.page.evaluate(`(() => {
       const w = window.cs.world
       const cross = ${JSON.stringify(cross)}
+      const kind = ${JSON.stringify(kind)}
       let worst = 0
       for (const id of window.cs.controls.selected) {
         const sq = w.squadrons.find((s) => s.id === id)
         const o = sq && sq.pending && sq.pending.order
-        if (!o || o.kind !== 'move') continue
-        worst = Math.max(worst, Math.hypot(o.to.x - cross.x, o.to.y - cross.y, o.to.z - cross.z))
+        if (!o || o.kind !== kind) continue
+        const at = o.kind === 'move' ? o.to : o.at
+        worst = Math.max(worst, Math.hypot(at.x - cross.x, at.y - cross.y, at.z - cross.z))
       }
       return Math.round(worst)
     })()`)) as number
@@ -537,6 +578,43 @@ class Hand {
             n++; x += g.pos.x; y += g.pos.y; z += g.pos.z
           }
           if (n) go = { x: x / n, y: y / n, z: z / n }
+          // Nothing drawn and nothing remembered is still not nothing to do, because the
+          // missions keep garrisons now: wings that hold their deployment and never sortie,
+          // which under fog is an enemy no amount of standing still will ever show you.
+          // Everything of theirs arrived from up the corridor, so a commander who has
+          // cleared the plot goes and looks where it deployed from, and every garrison in
+          // the campaign stands within sensor reach of the corridor's far end.
+          //
+          // The point is stepped a leg beyond the rearmost gun wing rather than named
+          // outright, because the far point at once is a race the needles win: on Shoal
+          // they crossed alone at 58, straight through an unseen battery's envelope, and
+          // were dead before the lances whose 275 sensor is what draws that battery had
+          // covered half the distance. Re-read every pass, the step walks the fleet up
+          // together and hands over to an attack the moment something is drawn.
+          if (!go && mine.length) {
+            let rear = Infinity
+            for (const m of mine) if (m.cls !== 'eye') rear = Math.min(rear, m.centroid.z)
+            if (!Number.isFinite(rear)) rear = 0
+            go = { x: 0, y: 0, z: Math.min(rear + 240, w.bounds * 0.55) }
+          }
+        }
+        // Nobody clicks on a rock. The simulation would lift the point anyway, but the
+        // lift lands the order away from the cursor's cross and the note below reads
+        // that as the interface lying, so the hand slides the point off any solid the
+        // way a hand does, radially to a clear standoff.
+        if (go) {
+          for (const b of w.bodies) {
+            if (b.kind !== 'planet' && b.kind !== 'moon') continue
+            const dx = go.x - b.pos.x, dy = go.y - b.pos.y, dz = go.z - b.pos.z
+            const d = Math.hypot(dx, dy, dz)
+            // Past the lift the simulation would apply, which clears the formation and
+            // not just the hull: at radius plus 70 the order still landed 21 out from
+            // the cross on every gate seed, which is the lift finishing the job.
+            const keep = b.radius + 110
+            if (d >= keep) continue
+            const n = d > 1 ? d : 1
+            go = { x: b.pos.x + (dx / n) * keep, y: b.pos.y + (dy / n) * keep, z: b.pos.z + (dz / n) * keep }
+          }
         }
         return { guns: guns, busy: busy, want: want, go: go }
       })()`)) as {
@@ -653,9 +731,15 @@ class Hand {
         restation = t + 6
         if (read.wings.length) {
           for (let i = 0; i < read.wings.length; i++) await this.select(read.wings[i], i > 0)
-          await this.move(read.away)
+          // A post rather than a move, and the difference is the mission. A wing on a move
+          // order runs nose-first with its guns silent, so a retreat flown on right clicks
+          // never shoots back and is run down: none of twelve headless runs survive it.
+          // Posted, the fleet gives the same ground fighting.
+          await this.holdAt(read.away)
         }
         if (charge) {
+          // The courier stays on a move: it has no guns, and the rearguard leg is about
+          // being somewhere, at speed, rather than about fighting on the way.
           await this.select(charge)
           await this.move(read.rear)
         }
@@ -800,13 +884,28 @@ const PLANS: Plan[] = [
       await h.until(30)
       await h.select('LOVELACE')
       await h.attack('DRIFT')
-      await h.mop(90)
+      // Long enough for the sweep at the end: THORN holds its deployment behind the moon
+      // and has to be gone looking for, and the walk up the corridor is most of a minute.
+      await h.mop(150)
     },
   },
   {
     mission: 'deep-well',
-    reading: 'over the top of Sorrow and down the far side, both wings together, then mob their artillery',
+    reading: 'let their sortie break on the line, then over the top of Sorrow and onto their artillery',
     async fly(h) {
+      // Their swarm crosses first, and under ballistic gunnery the side crossing open
+      // volume is the side that pays: a standing fleet tracks hulls that have to close
+      // nose-on while nothing tracks it back. Flying the route immediately, which was
+      // this plan's old reading, met the sortie mid-crossing with both wings strung out
+      // and was wiped by T+40 on all three seeds. So the fleet stands, spends their
+      // needles against the line, and only then goes around.
+      await h.select('HOPPER')
+      await h.stance('open')
+      await h.attack('DRIFT', 30)
+      await h.select('LOVELACE')
+      await h.stance('wide')
+      await h.attack('DRIFT', 6)
+      await h.gone('DRIFT', 65)
       // Over the top rather than around the side, which is the route the scripted plan wins
       // with: the question here is only whether a hand can say it.
       const legs = [
@@ -816,32 +915,31 @@ const PLANS: Plan[] = [
       for (const leg of legs) {
         await h.select('HOPPER')
         await h.select('LOVELACE', true)
-        await h.stance('tight')
+        await h.stance('open')
         await h.move(leg)
         // Paced on the guns rather than the needles: LOVELACE is the slow wing, and the needles
         // waiting for it is the whole point of going around.
         await h.arrive(leg, { pace: 'LOVELACE' })
       }
-      // Both wings onto their artillery at once, needles open so one bracket cannot take the
-      // wing and the guns tight, which is what they are for.
+      // Both wings onto their artillery at once, needles open so one bracket cannot take
+      // the wing, and the guns wide rather than tight, because a bunched battery masks its
+      // own barrels: a shell held for a friendly in the lane is a shell never fired.
       await h.select('HOPPER')
       await h.stance('open')
       await h.attack('THORN', 30)
       await h.select('LOVELACE')
-      await h.stance('tight')
+      await h.stance('wide')
       await h.attack('THORN', 20)
-      // Straight into the finishing loop rather than sitting on the two orders until T+70.
-      // The scripted plan that wins this mission twelve times in twelve re-reads the board
-      // every two seconds, and the gap between the two is what a hand actually loses here:
-      // once THORN is wrecked the wings hold station on nothing, and 40 seconds of that is
-      // long enough for the needles they were mobbing to come back around.
-      await h.mop(140)
+      // Straight into the finishing loop rather than sitting on the two orders: once THORN
+      // is wrecked the wings would hold station on nothing while whatever is left of their
+      // swarm came back around.
+      await h.mop(180)
     },
   },
   {
     mission: 'shoal',
     reading:
-      'eye out wide and kept there, the fleet over the belt rather than through it, their lances first',
+      'eye out wide, the swarm met with everything together, then the eye forward and their lances dug out',
     async fly(h) {
       /*
        * The eye holds one post through the whole first half and does not move, and the post is
@@ -869,67 +967,64 @@ const PLANS: Plan[] = [
       await h.stance('wide')
       await h.move({ x: -330, y: 210, z: -70 })
       /*
-       * The line stands on our own side of the belt, high, and lets their needles come up to
-       * it. Crossing over the top to meet them was the reading I flew first and it is the wrong
-       * one, because the far side is where their needles and their artillery both are: twelve
-       * needles walked into that and were wiped by T+23 in two runs of three, which left the
-       * lances to fight the second half of the battle alone.
+       * Their swarm first, with everything, together, from the line the fleet is already
+       * standing on. This plan used to be architecture: the needles posted 200 forward, the
+       * lances parked behind them, the brawl arranged in front of the guns. Two things
+       * killed it. A wing parked on a move order fights with none of what a wing knows:
+       * the orbit that beats a tracking mount, the weave that spoils a lead, the standoff
+       * that gives ground from a shorter gun all live inside the attack order, so the
+       * posted needles just stood and were swept. And the needles sent forward fought
+       * fourteen alone while the lances crossed the gap at thirty: twelve traded seven for
+       * eight on the good seeds and everything on the bad one. Attacking together from the
+       * deployment line, the swarm has to come through 240 of lance fire to reach needles
+       * that are already flying their own fight, which is the same arithmetic the generic
+       * commander uses to take this mission twelve of twelve.
        *
        * Nothing descends into the belt, because it blinds and grinds whatever is inside.
        */
       await h.select('HOPPER')
       await h.stance('open')
-      await h.move({ x: -20, y: 190, z: -60 })
-      // Two hundred behind the screen and level with it, which is the number that matters: a
-      // lance reaches 240 and a needle 100, so from here their guns cover the brawl our
-      // needles are in and nothing in it can reach back. Held at the deployment line the wing
-      // is out of the fight, and walked forward with the screen it is just a soft needle.
-      await h.select('LOVELACE')
-      await h.stance('tight')
-      await h.move({ x: 10, y: 200, z: -250 })
-      /*
-       * Their swarm first, with the artillery, and the order goes in the moment the swarm is
-       * drawn rather than on a count: a lance one-shots a needle, so three of them shelling a
-       * wing of fourteen is three needles a volley, and how many volleys land before the two
-       * swarms meet is the whole battle. Waiting until T+14 to say it costs two of them.
-       *
-       * The plan used to save the lances for their artillery on the argument that artillery is
-       * the answer to artillery. That argument spends the screen first and then fights the
-       * second half a wing down.
-       */
-      await h.select('LOVELACE')
       await h.attack('SHOAL', 40)
+      await h.select('LOVELACE')
+      await h.stance('wide')
+      await h.attack('SHOAL', 6)
       await h.gone('SHOAL', 120)
       /*
        * Their artillery is the second half of the mission and it is a seeing contest rather
-       * than a shooting one: three lances against three, both reaching 240, so whoever is drawn
-       * first dies. They win that contest from inside the rock, where a 470 sensor reads 150 and
-       * a lance's own 240 reads 77, which is how their guns cross the belt unseen and open at a
-       * range the fleet has nothing drawn to answer. On seed 1000 it was the whole loss: THORN
-       * climbed out at T+29 and all three of ours were wrecked by T+41 without firing.
+       * than a shooting one, and the garrison turned the contest around. Their lances no
+       * longer climb out to ambush; they hold their line across the belt and wait, so the
+       * fleet has to come to them, and a fleet that crosses on move orders is a fleet
+       * crossing silent: their sensors reach 275 and their guns 240, so it is drawn, then
+       * shelled, and it shoots back only after it has paid the difference. Flown that way
+       * the survivors of the brawl arrived at their line two and three hulls at a time and
+       * the mission stalled out at two scouts against a standing battery.
        *
-       * So the scout goes forward and low, into the gap between our guns and the rock, because
-       * that is the one thing that beats the trick. Their artillery has to come inside 240 of our
-       * lances to shoot them, the approach passes underneath this post, and 150 is enough to
-       * catch it there. The wing is inside their reach while it does this and that is the price:
-       * a scout is two points, a volley spent on one is a volley not spent on a lance, and either
-       * way our guns get the first answer they have had all mission.
+       * The eye is the answer the card has been pointing at all along. It sees 470, they
+       * see 275 and throw 240, so a post a comfortable 370 off their line reads every hull
+       * they have while nothing of theirs can answer it, and the fleet gets to cross under
+       * an attack order with a name in it, weaving and standing off, instead of marching
+       * silent at a battery it has not drawn yet.
        */
       await h.select('WINLOCK')
-      await h.move({ x: 0, y: 150, z: -60 })
+      await h.move({ x: 0, y: 80, z: 120 })
+      await h.select('HOPPER')
+      await h.attack('THORN', 30)
+      await h.select('LOVELACE')
+      await h.attack('THORN', 10)
       await h.mop(200)
     },
   },
   {
     mission: 'aegis',
-    reading: 'guns onto the screens, needles onto their swarm, our own screen walking with the needles',
+    reading: 'field over the needles, everything onto their sortie, then dig the screens out of their line',
     async fly(h, page) {
-      const liveRed = async (): Promise<string[]> =>
+      const liveRed = async (): Promise<{ name: string; seen: boolean }[]> =>
         (await page.evaluate(`(() => {
           const w = window.cs.world
           return w.squadrons.filter((s) => s.side === 'red' &&
-            s.ships.some((id) => w.ships.find((x) => x.id === id && x.alive))).map((s) => s.name)
-        })()`)) as string[]
+            s.ships.some((id) => w.ships.find((x) => x.id === id && x.alive)))
+            .map((s) => ({ name: s.name, seen: s.ships.some((id) => w.seen.blue.has(id)) }))
+        })()`)) as { name: string; seen: boolean }[]
 
       /*
        * The field goes over the needles, and that is the card read the other way round. Their
@@ -955,12 +1050,16 @@ const PLANS: Plan[] = [
       await h.stance('tight')
       await h.move(swarm)
       await h.arrive(guns, { pace: 'LOVELACE' })
-      // Sixteen needles against a field that bites every bolt is exactly the arithmetic the
-      // card says we lose, so the swarm is the needles' work and the screens are the guns'.
+      // Everything onto the sortie. The screens the mission is named for are garrisoned
+      // now: they hold their line and never march, so until the fleet crosses there is
+      // nothing of theirs drawn but the swarm, and a battery told to wait for a name it
+      // cannot see spends the whole brawl silent. The guns joining the needle fight is
+      // also the better fight for them: a lance tracks an approaching needle for free.
       await h.select('HOPPER')
       await h.attack('DRIFT', 40)
       await h.select('LOVELACE')
-      await h.attack('HUSK', 40)
+      await h.stance('wide')
+      await h.attack('DRIFT', 6)
       // An order names a place, never a wing to follow, so keeping our screen over the brawl is
       // something the commander has to keep saying, from the moment the shooting starts and on
       // the cadence the shooting happens at. This used to open at T+42 on a fourteen second
@@ -975,16 +1074,20 @@ const PLANS: Plan[] = [
           await h.move(at)
         }
         const live = await liveRed()
-        const want = ['HUSK', 'THORN', 'DRIFT'].find((n) => live.includes(n))
+        const want = ['HUSK', 'THORN', 'DRIFT'].map((n) => live.find((r) => r.name === n)).find(Boolean)
         if (!want) break
+        // A garrison holding dark on its own line is not a thing this loop can click, and
+        // waiting for it to appear is how the old plan stood still from the end of the
+        // brawl to the end of the watch. The finishing loop knows to go and look.
+        if (!want.seen) break
         await h.select('LOVELACE')
-        await h.attack(want, 4)
-        if (!live.includes('DRIFT')) {
+        await h.attack(want.name, 4)
+        if (!live.some((r) => r.name === 'DRIFT')) {
           await h.select('HOPPER')
-          await h.attack(want, 4)
+          await h.attack(want.name, 4)
         }
       }
-      await h.mop(190)
+      await h.mop(220)
     },
   },
   {

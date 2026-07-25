@@ -347,20 +347,19 @@ function hold(trials = 12) {
  * it is impossible, and that is a design bug rather than a difficulty setting.
  *
  * The beat is the whole plan and it is worth stating what it costs to get wrong,
- * because the number came out of a sweep rather than out of taste. Launching with
- * the fleet wins one run in twelve, eighteen seconds later wins ten, and the curve
- * either side is gentle: ten seconds wins six, twenty two wins seven, and by
- * thirty four it is down to three. Late is worse than early, since by then the
- * escort has been ground up and the defence is free again. The plan that came
- * before this one staged the carrier high and wide of the fight before diving,
- * which was free when a carrier flew at full speed and now wins two runs in twelve:
- * carrying costs a third of the wing's speed, so the extra distance is paid in
- * seconds handed to the defence.
+ * because the number came out of a sweep rather than out of taste. Under ballistic
+ * gunnery the sweep reads, in wins of twenty four: launch at six seconds 13, ten 17,
+ * fourteen 21, eighteen 20, twenty two 17, twenty six 10, thirty four 9. The plateau
+ * is fourteen to eighteen and the late side is the cliff now: a courier that leaves
+ * after the escort is ground up crosses the terminal leg with every needle screen in
+ * the corridor free to shadow it, and shadowing is what kills under swept collision,
+ * because a wing pacing the courier at gun range never builds the angular rate that
+ * makes tracking miss. Early costs much less than it used to, since a carrier that
+ * arrives with the fleet is one target among five rather than the only thing deep.
  */
-// Twenty four runs rather than ten. The plan wins roughly half of them, and ten
-// samples of a coin cannot tell 30 percent from 50: an earlier pass read 3/10 here
-// against 6/12 from the same seeds driven in a different order, which is noise being
-// mistaken for a regression.
+// Twenty four runs rather than ten, because ten samples of a coin cannot tell 30
+// percent from 50: an earlier pass read 3/10 here against 6/12 from the same seeds
+// driven in a different order, which is noise being mistaken for a regression.
 function exam(trials = 24) {
   const scenario = scenarioById('last-exam')!
   console.log(`\nlast exam, ${trials} runs with a scripted "send the fleet, then the courier" plan`)
@@ -475,9 +474,10 @@ function bays(trials = 12) {
         // The scout stays where it was put: it sees 470 and dies to anything.
         if (sq.cls === 'eye') continue
         if (leg < legs.length) {
-          issueOrder(w, sq, { kind: 'move', to: clone(legs[leg]) }, 'tight')
+          issueOrder(w, sq, { kind: 'move', to: clone(legs[leg]) }, 'open')
         } else if (sq.cls === 'lance' && target) {
-          issueOrder(w, sq, { kind: 'attack', sq: target.id }, 'tight')
+          // Wide, so the whole battery bears: a bunched battery masks its own guns.
+          issueOrder(w, sq, { kind: 'attack', sq: target.id }, 'wide')
         } else {
           // Needles and the screen both stand on the guns: the needles to intercept what
           // comes for them, the screen to make small arms worth two tenths a bolt.
@@ -532,17 +532,33 @@ function well(trials = 12) {
       mine[sq.cls] = sq
       blue.reserved.add(sq.id)
     }
-    // Over the top of Sorrow, then down onto their side of it. Two waypoints, and legs
-    // advance on arrival rather than on a clock so a wing held up is not left behind.
+    // Let their sortie break on the line first, then over the top of Sorrow and
+    // down onto their side. Under ballistic gunnery the side crossing open volume
+    // is the side that pays, so the plan spends red's needles against a standing
+    // fleet before it goes anywhere, and only then flies the route.
     const legs = [v3(-40, 300, 20), v3(120, 60, 260)]
     let leg = 0
     let next = 0
+    let met = false
 
     const r = run(world, enemy, blue, (w) => {
       if (w.t < next) return
       next = w.t + 2
       const guns = mine.lance
       const anchor = aliveCount(w, guns) > 0 ? guns.centroid : mine.needle.centroid
+      // The sortie is met when their swarm is spent: what remains after that is
+      // the garrison, which does not come to you.
+      const swarm = squadronsOf(w, 'red').find((sq) => sq.name === 'DRIFT')
+      if (!met && (!swarm || aliveCount(w, swarm) <= 3 || w.t > 60)) met = true
+      if (!met) {
+        for (const sq of Object.values(mine)) {
+          if (aliveCount(w, sq) === 0) continue
+          if (swarm && dist(swarm.centroid, anchor) < 420) {
+            issueOrder(w, sq, { kind: 'attack', sq: swarm.id }, sq.cls === 'needle' ? 'open' : 'wide')
+          }
+        }
+        return
+      }
       if (leg < legs.length && dist(anchor, legs[leg]) < 120) leg++
       const reds = squadronsOf(w, 'red').filter((sq) => aliveCount(w, sq) > 0)
       // Their artillery first, by name. It is five lances against four and it is what
@@ -551,9 +567,11 @@ function well(trials = 12) {
       for (const sq of Object.values(mine)) {
         if (aliveCount(w, sq) === 0) continue
         if (leg < legs.length) {
-          issueOrder(w, sq, { kind: 'move', to: clone(legs[leg]) }, 'tight')
+          issueOrder(w, sq, { kind: 'move', to: clone(legs[leg]) }, 'open')
         } else if (want) {
-          issueOrder(w, sq, { kind: 'attack', sq: want.id }, sq.cls === 'needle' ? 'open' : 'tight')
+          // A wall for the guns: under ballistic fire a bunched battery masks
+          // its own barrels, so tight is exactly the wrong shape for artillery.
+          issueOrder(w, sq, { kind: 'attack', sq: want.id }, sq.cls === 'needle' ? 'open' : 'wide')
         }
       }
     })

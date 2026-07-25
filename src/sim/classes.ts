@@ -13,6 +13,19 @@ const deg = (d: number) => (d * Math.PI) / 180
  *   keel   beats attrition (replaces its own losses)
  *   eye    beats ignorance (sees the fleet you have not found yet)
  *
+ * The triangle used to be asserted by a to-hit formula and is now supposed to fall
+ * out of the mounts. What separates the guns is `traverse`, how fast a mount can
+ * track: a needle crossing close sweeps a lance's sky faster than the whole hull
+ * can turn, so the lance's shells land where the needle was, while the same needle
+ * charging straight in has no angular rate at all and eats a 34 point shell.
+ * "Out-turns the bolt" is a fact about geometry now rather than a dice weight.
+ *
+ * The lance is the one deliberate fixed mount: a spinal gun uses the whole hull as
+ * its mount, which is why it hits thirteen times harder and why firing means
+ * facing. Aegis and keel guns are turrets and track on their own; the needle's
+ * guns are bolted to a hull that turns 220 degrees a second, which is a turret by
+ * other means.
+ *
  * Aegis is the one class that cannot win a duel: it has a token gun, so a screen
  * on its own only ever draws. Its points are spent on somebody else's survival,
  * which is why tools/balance.ts measures it by whether a mixed fleet does better
@@ -36,8 +49,8 @@ export const CLASSES: Record<ClassId, ShipClass> = {
       cycle: 0.45,
       arc: deg(48),
       boltSpeed: 340,
-      accuracy: 0.92,
-      evasionWeight: 0.45,
+      traverse: deg(200),
+      dispersion: deg(1.6),
     },
   },
 
@@ -49,16 +62,22 @@ export const CLASSES: Record<ClassId, ShipClass> = {
     maxSpeed: 30,
     accel: 26,
     turn: deg(48),
-    sensor: 185,
+    // Further than the gun, not shorter. At 185 a lance could shoot to 240 and
+    // see to 185, so a battery sweeping toward an unseen enemy marched inside
+    // its own artillery advantage before it knew there was anything to shell,
+    // and under ballistic gunnery that walk is the class duel lost on approach.
+    sensor: 275,
     cost: 3,
+    // The traverse is the class's whole vulnerability: anything that gets close
+    // and crosses is untouchable, and anything slow or approaching is dead.
     weapon: {
       range: 240,
       damage: 34,
       cycle: 2.6,
       arc: deg(22),
       boltSpeed: 240,
-      accuracy: 0.95,
-      evasionWeight: 0.72,
+      traverse: deg(12),
+      dispersion: deg(0.7),
     },
   },
 
@@ -75,16 +94,23 @@ export const CLASSES: Record<ClassId, ShipClass> = {
     // The field has to be wide enough to actually cover a squadron in formation,
     // otherwise a screen only ever protects itself. The bite sits just under a
     // needle's bolt and far under a lance's: that one number is what makes a
-    // screen the answer to a swarm and no answer at all to artillery.
-    field: { radius: 78, pool: 85, regen: 9, bite: 2.4 },
+    // screen the answer to a swarm and no answer at all to artillery. The pool
+    // is sized against a swarm that concentrates: at 85 a focused wing stripped
+    // one hull's cover in under two seconds and the class stopped meaning
+    // anything.
+    field: { radius: 78, pool: 130, regen: 16, bite: 2.4 },
+    // A flak turret rather than a token. Under ballistic gunnery this is the one
+    // mount in the fleet that out-tracks an orbiting needle, so the screen is
+    // itself the threat to the swarm it blunts; artillery still shells it from
+    // far beyond this gun's reach, which keeps the class unable to win a duel.
     weapon: {
       range: 100,
-      damage: 2,
+      damage: 5,
       cycle: 0.85,
-      arc: deg(120),
+      arc: Math.PI,
       boltSpeed: 300,
-      accuracy: 0.9,
-      evasionWeight: 0.4,
+      traverse: deg(140),
+      dispersion: deg(1.8),
     },
   },
 
@@ -106,8 +132,8 @@ export const CLASSES: Record<ClassId, ShipClass> = {
       // Capitals ring themselves with turrets, so anything in range bears.
       arc: Math.PI,
       boltSpeed: 280,
-      accuracy: 0.88,
-      evasionWeight: 0.5,
+      traverse: deg(55),
+      dispersion: deg(1.4),
     },
   },
 
